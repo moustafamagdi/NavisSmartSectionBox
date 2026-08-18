@@ -112,7 +112,8 @@ namespace Autodesk.Navisworks.Api.Plugins
     public class ToolPlugin
     {
         public virtual bool MouseDown(View view, KeyModifiers modifiers, ushort button, int x, int y, double timeOffset) { return false; }
-        public virtual bool MouseMove(View view, KeyModifiers modifiers, ushort button, int x, int y, double timeOffset) { return false; }
+        public virtual bool MouseMove(View view, KeyModifiers modifiers, int x, int y, double timeOffset) { return false; }
+        public virtual bool MouseDrag(View view, KeyModifiers modifiers, int x, int y, double timeOffset) { return false; }
         public virtual bool MouseUp(View view, KeyModifiers modifiers, ushort button, int x, int y, double timeOffset) { return false; }
         public virtual bool MouseLeave(View view, double timeOffset) { return false; }
         public virtual bool KeyDown(View view, KeyModifiers modifier, ushort key, double timeOffset) { return false; }

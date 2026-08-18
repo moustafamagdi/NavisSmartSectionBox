@@ -26,19 +26,13 @@ namespace SmartSectionBox.Interaction
             dragController.LiveUpdates = SmartSectionBoxRuntime.LiveUpdates;
         }
 
-        public override bool MouseMove(View view, KeyModifiers modifiers, ushort button, int x, int y, double timeOffset)
+        public override bool MouseMove(View view, KeyModifiers modifiers, int x, int y, double timeOffset)
         {
             try
             {
                 EnsureController();
                 dragController.LiveUpdates = SmartSectionBoxRuntime.LiveUpdates;
-                if (dragController.State == DragState.Dragging)
-                {
-                    var handled = dragController.Update(x, y, modifiers, view);
-                    PublishHover(dragController.Hover);
-                    view.RequestDelayedRedraw(ViewRedrawRequests.Render);
-                    return handled;
-                }
+                if (dragController.State == DragState.Dragging) return false;
 
                 var state = SmartSectionBoxRuntime.Service.GetCurrentBox();
                 var hit = hitTester.HitTest(state, view, x, y);
@@ -49,6 +43,24 @@ namespace SmartSectionBox.Interaction
             catch (Exception ex)
             {
                 Logger.Error("MouseMove failed in Smart Section Box tool.", ex);
+                return false;
+            }
+        }
+
+        public override bool MouseDrag(View view, KeyModifiers modifiers, int x, int y, double timeOffset)
+        {
+            try
+            {
+                EnsureController();
+                if (dragController.State != DragState.Dragging) return false;
+                var handled = dragController.Update(x, y, modifiers, view);
+                PublishHover(dragController.Hover);
+                view.RequestDelayedRedraw(ViewRedrawRequests.Render);
+                return handled;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("MouseDrag failed in Smart Section Box tool.", ex);
                 return false;
             }
         }
