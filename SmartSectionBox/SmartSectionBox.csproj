@@ -73,6 +73,9 @@
       <SubType>Designer</SubType>
     </Page>
   </ItemGroup>
+  <!-- Required by legacy .NET Framework project files: defines Build, Clean, Rebuild, and Compile. -->
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+
   <Target Name="ValidateNavisworksReferences" BeforeTargets="ResolveAssemblyReferences">
     <Error Condition="!Exists('$(NavisworksInstallDir)\Autodesk.Navisworks.Api.dll')" Text="Navisworks 2024 API assembly not found. Set the NavisworksInstallDir MSBuild property to the Navisworks Manage or Simulate 2024 installation folder." />
   </Target>
