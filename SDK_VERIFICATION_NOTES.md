@@ -1,0 +1,30 @@
+# Navisworks 2024 API Verification Notes
+
+This working note records the API evidence used to implement the add-in. The build workspace is Linux and does not contain a Navisworks installation, so it cannot capture a document-specific `GetClippingPlanes()` value. To avoid inventing a schema, the add-in persists the native JSON envelope returned by Navisworks and updates only the recognized box coordinate tokens.
+
+| Area | Verified 2024 SDK evidence | Implementation decision |
+|---|---|---|
+| Runtime | Autodesk's Navisworks 2024 SDK is compiled for .NET Framework 4.8 and is intended for Visual Studio 2022. | The solution targets .NET Framework 4.8 and uses legacy non-SDK-style project format for Visual Studio/Navisworks compatibility. |
+| Clipping | `View.GetClippingPlanes()` returns `string` described as a JSON `ClipPlaneSet`; `View.SetClippingPlanes(string)` and `View.TrySetClippingPlanes(string)` are available. | The sectioning adapter uses a validated JSON `ClipPlaneSet` envelope; `TrySetClippingPlanes` is the non-throwing hot-path call. |
+| Input | `ToolPlugin.MouseDown(View, KeyModifiers, ushort, int, int, double)`, `MouseMove(View, KeyModifiers, ushort, int, int, double)`, and `MouseUp(...)` are documented. The return value determines whether the tool consumes an interaction. | The tool returns `true` only while it owns a face drag and returns `false` otherwise, preserving normal Navisworks navigation away from faces. |
+| Cursor | `ToolPlugin.GetCursor(View, KeyModifiers)` returns the Navisworks `Cursor` type; the default is `Cursor.Unhandled`. | The tool returns resize cursors only during hover/drag and returns `Cursor.Unhandled` elsewhere. |
+| Viewport | `View.Width`, `View.Height`, and `View.ProjectPoint(Point3D)` are documented. | Hit testing projects actual face corners through the supported `ProjectPoint` API, not a guessed screen transform. |
+| Rendering | `ToolPlugin.OverlayRender(View, Graphics)` is documented as custom drawing over the main render. | The tool uses overlay rendering for a conservative selected-face outline. No unsupported window overlays are used. |
+| Dock pane | `DockPanePlugin` exposes `CreateControlPane`, `DestroyControlPane`, and `Visible`; Autodesk's WPF sample hosts a WPF `UserControl` through `WindowsFormsIntegration.ElementHost`. | The dock pane follows the supported ElementHost pattern. |
+
+The official SDK also contains an input-and-render sample which activates a `ToolPlugin` via `Application.MainDocument.Tool.SetCustomToolPlugin(...)` and triggers overlays with `RequestDelayedRedraw(ViewRedrawRequests.Render)`.
+
+> The official API reference describes the clipping payload only as a JSON `ClipPlaneSet`; it does not publish the field-level box schema. Consequently, first runtime activation logs and retains the native document payload for inspection, and all writes are passed through `TrySetClippingPlanes` for validation.
+
+## Sources
+
+[1]: https://blog.autodesk.io/navisworks-2024-sdk-is-posted/ "Navisworks 2024 SDK is posted — Autodesk Developer Blog"
+[2]: https://aps.autodesk.com/developer/overview/navisworks-api "Navisworks API — Autodesk Platform Services"
+[3]: https://www.linkedin.com/pulse/navisworks-api-sectioning-control-net-gavin-yang-li-fvyxc "Navisworks API Sectioning Control with .NET"
+[4]: https://forums.autodesk.com/t5/navisworks-api-forum/enable-section-box-by-using-the-api/td-p/4966628 "Enable section box by using the API — Autodesk Community"
+
+The extracted official 2024 SDK is retained locally under `/home/ubuntu/navisworks-sdk-2024` for reproducibility and was used to verify the exact API signatures listed above.
+
+## Visual inspection note
+
+The published box-mode example visibly confirms a root `Type` of `ClipPlaneSet`, a nested box object, and min/max coordinate arrays. The screenshot is not sufficiently legible to treat every field name or rotation representation as authoritative. The implementation therefore uses field discovery against `GetClippingPlanes()` and validates every write through `TrySetClippingPlanes` instead of copying an unverified image transcription.

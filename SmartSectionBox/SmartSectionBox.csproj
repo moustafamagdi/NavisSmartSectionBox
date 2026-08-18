@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{A7DDC550-4408-4BB2-A64D-0A9C4E207A24}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>SmartSectionBox</RootNamespace>
+    <AssemblyName>SmartSectionBox.ADSK</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <LangVersion>7.3</LangVersion>
+    <Prefer32Bit>false</Prefer32Bit>
+    <Deterministic>true</Deterministic>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <NavisworksInstallDir Condition="'$(NavisworksInstallDir)' == ''">C:\Program Files\Autodesk\Navisworks Manage 2024</NavisworksInstallDir>
+    <PluginDeployDir Condition="'$(PluginDeployDir)' == ''">$(APPDATA)\Autodesk\Navisworks Manage 2024\Plugins\SmartSectionBox</PluginDeployDir>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Autodesk.Navisworks.Api">
+      <HintPath>$(NavisworksInstallDir)\Autodesk.Navisworks.Api.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="WindowsBase" />
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
+    <Reference Include="WindowsFormsIntegration" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Core\SectionBoxState.cs" />
+    <Compile Include="Core\SectionBoxFace.cs" />
+    <Compile Include="Core\SectionBoxMath.cs" />
+    <Compile Include="Core\SectionBoxJsonAdapter.cs" />
+    <Compile Include="Core\SectionBoxService.cs" />
+    <Compile Include="Interaction\CameraProjection.cs" />
+    <Compile Include="Interaction\FaceHitTester.cs" />
+    <Compile Include="Interaction\DragController.cs" />
+    <Compile Include="Interaction\CursorManager.cs" />
+    <Compile Include="Interaction\SectionBoxToolPlugin.cs" />
+    <Compile Include="UI\ViewModels\DelegateCommand.cs" />
+    <Compile Include="UI\ViewModels\SectionBoxViewModel.cs" />
+    <Compile Include="UI\SectionBoxDockPane.xaml.cs">
+      <DependentUpon>SectionBoxDockPane.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UI\SmartSectionBoxDockPanePlugin.cs" />
+    <Compile Include="Persistence\PresetStore.cs" />
+    <Compile Include="Plugin\SmartSectionBoxRuntime.cs" />
+    <Compile Include="Plugin\SmartSectionBoxAddin.cs" />
+    <Compile Include="Infrastructure\Logger.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Page Include="UI\SectionBoxDockPane.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+  </ItemGroup>
+  <Target Name="ValidateNavisworksReferences" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="!Exists('$(NavisworksInstallDir)\Autodesk.Navisworks.Api.dll')" Text="Navisworks 2024 API assembly not found. Set the NavisworksInstallDir MSBuild property to the Navisworks Manage or Simulate 2024 installation folder." />
+  </Target>
+  <Target Name="DeployPlugin" AfterTargets="Build" Condition="'$(DeployPlugin)' == 'true'">
+    <MakeDir Directories="$(PluginDeployDir)" />
+    <Copy SourceFiles="$(TargetPath);$(TargetDir)$(TargetName).pdb" DestinationFolder="$(PluginDeployDir)" SkipUnchangedFiles="true" Condition="Exists('$(TargetDir)$(TargetName).pdb')" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(PluginDeployDir)" SkipUnchangedFiles="true" />
+  </Target>
+</Project>
