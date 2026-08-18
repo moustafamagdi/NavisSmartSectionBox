@@ -13,7 +13,8 @@
     <Deterministic>true</Deterministic>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <NavisworksInstallDir Condition="'$(NavisworksInstallDir)' == ''">C:\Program Files\Autodesk\Navisworks Manage 2024</NavisworksInstallDir>
-    <PluginDeployDir Condition="'$(PluginDeployDir)' == ''">$(APPDATA)\Autodesk\Navisworks Manage 2024\Plugins\SmartSectionBox</PluginDeployDir>
+    <PluginBundleDir Condition="'$(PluginBundleDir)' == ''">$(APPDATA)\Autodesk\ApplicationPlugins\SmartSectionBox.bundle</PluginBundleDir>
+    <PluginDeployDir Condition="'$(PluginDeployDir)' == ''">$(PluginBundleDir)\Contents\2024</PluginDeployDir>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -81,7 +82,8 @@
     <Error Condition="!Exists('$(NavisworksInstallDir)\Autodesk.Navisworks.Api.dll')" Text="Navisworks 2024 API assembly not found. Set the NavisworksInstallDir MSBuild property to the Navisworks Manage or Simulate 2024 installation folder." />
   </Target>
   <Target Name="DeployPlugin" AfterTargets="Build" Condition="'$(DeployPlugin)' == 'true'">
-    <MakeDir Directories="$(PluginDeployDir)" />
+    <MakeDir Directories="$(PluginBundleDir);$(PluginDeployDir)" />
+    <Copy SourceFiles="$(ProjectDir)..\Deployment\SmartSectionBox.bundle\PackageContents.xml" DestinationFolder="$(PluginBundleDir)" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(TargetPath);$(TargetDir)$(TargetName).pdb" DestinationFolder="$(PluginDeployDir)" SkipUnchangedFiles="true" Condition="Exists('$(TargetDir)$(TargetName).pdb')" />
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(PluginDeployDir)" SkipUnchangedFiles="true" />
   </Target>

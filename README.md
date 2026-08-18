@@ -64,17 +64,19 @@ Install **Navisworks Manage 2024** or **Navisworks Simulate 2024** and Visual St
    /p:DeployPlugin=true
    ```
 
-   The default deployment folder is:
+   This creates the Navisworks 2024 application bundle below:
 
    ```text
-   %AppData%\Autodesk\Navisworks Manage 2024\Plugins\SmartSectionBox\
+   %AppData%\Autodesk\ApplicationPlugins\SmartSectionBox.bundle\
+   ├── PackageContents.xml
+   └── Contents\2024\SmartSectionBox.ADSK.dll
    ```
 
-   You may override it with `PluginDeployDir` when using Simulate or an enterprise plug-in deployment location.
+   The bundle manifest uses `AppType="ManagedPlugin"`, `Platform="NAVMAN|NAVSIM"`, and Navisworks 2024 series `Nw21`. Override `PluginBundleDir` for a machine-wide deployment, such as `C:\ProgramData\Autodesk\ApplicationPlugins\SmartSectionBox.bundle`.
 
 ## Install and Activate
 
-Copy `SmartSectionBox.ADSK.dll` (and its PDB for debugging) to a Navisworks 2024 plug-in folder, then restart Navisworks. Locate **Smart Section Box** in the plug-in/ribbon command list and run it. The command opens the dock pane, registers the custom tool, enables clipping, and tries to create a box around the active model when no native box payload is available.
+Use the checked-in [`Deployment/SmartSectionBox.bundle`](Deployment/SmartSectionBox.bundle) template rather than copying a DLL to a legacy product `Plugins` folder. Copy the Release DLL into `Contents\2024`, retain `PackageContents.xml` at the bundle root, then fully restart Navisworks. See [`Deployment/README.md`](Deployment/README.md) for the exact folder tree and diagnostics. Once the bundle is discovered, locate **Smart Section Box** in the Navisworks plug-in/ribbon command list. The command opens the dock pane, registers the custom tool, enables clipping, and tries to create a box around the active model when no native box payload is available.
 
 The first click on **Fit to Model** is the recommended initialization path. If Navisworks rejects the first fallback JSON payload, create a native box once through the Navisworks sectioning UI, click **Refresh**, and retry. The add-in then uses the exact payload returned by that installation and document.
 

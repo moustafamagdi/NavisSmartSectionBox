@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ApplicationPackage SchemaVersion="1.0"
+                    AutodeskProduct="Naviswork"
+                    Name="SmartSectionBox"
+                    Description="Smart Section Box for Autodesk Navisworks 2024"
+                    AppVersion="1.0.0"
+                    ProductType="Application"
+                    SupportedLocales="Enu">
+  <Components Description="Autodesk Navisworks 2024">
+    <RuntimeRequirements OS="Win64"
+                         Platform="NAVMAN|NAVSIM"
+                         SeriesMin="Nw21"
+                         SeriesMax="Nw21" />
+    <ComponentEntry AppName="SmartSectionBox"
+                    AppType="ManagedPlugin"
+                    ModuleName="./Contents/2024/SmartSectionBox.ADSK.dll"
+                    AppDescription="Smart Section Box" />
+  </Components>
+</ApplicationPackage>

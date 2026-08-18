@@ -28,3 +28,10 @@ The extracted official 2024 SDK is retained locally under `/home/ubuntu/naviswor
 ## Visual inspection note
 
 The published box-mode example visibly confirms a root `Type` of `ClipPlaneSet`, a nested box object, and min/max coordinate arrays. The screenshot is not sufficiently legible to treat every field name or rotation representation as authoritative. The implementation therefore uses field discovery against `GetClippingPlanes()` and validates every write through `TrySetClippingPlanes` instead of copying an unverified image transcription.
+
+## Bundle discovery correction
+
+Autodesk’s current Navisworks publisher guidance confirms that Manage and Simulate discover local applications from an Autodesk ApplicationPlugins `.bundle` containing `PackageContents.xml` and `Contents`. Its 2025 forum example further shows a working Navisworks managed-plugin manifest using `AppType="ManagedPlugin"`, `Platform="NAVMAN|NAVSIM"`, and Navisworks series codes (2024 is `Nw21`; 2025 is `Nw22`). The earlier generic manifest recommendation did not use this Navisworks-specific schema and should not be used.
+
+[5]: https://aps.autodesk.com/marketplace/publisher-center/navisworks-publisher-guidelines "Navisworks publisher guidelines — Autodesk Platform Services"
+[6]: https://forums.autodesk.com/t5/navisworks-api-forum/how-to-deploy-a-plug-in-for-navis-2025/td-p/13694530 "How to deploy a plug in for Navis 2025? — Autodesk Community"
