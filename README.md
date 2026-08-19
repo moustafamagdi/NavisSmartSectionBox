@@ -84,10 +84,10 @@ The first click on **Fit to Model** is the recommended initialization path. The 
 
 The dock pane is intentionally organized as a two-step workflow that remains readable in a narrow Navisworks panel.
 
-1. Run **Smart Section Box**. In **1. Create or Refit**, select **Fit to Model** to create an initial box around the complete model, or **Fit to Selection** to create one around selected items. This is the required first step; the exact-coordinate controls remain disabled until Navisworks accepts a box.
-2. Use **2. Edit Section Box** for exact Min/Max X, Y, and Z values. There are no sliders, so the dock pane remains usable when narrow. The **On** checkbox enables/disables the current box and **Live** controls whether a face drag updates the model continuously.
-3. Move the pointer over a visible native section-box face in the active 3D viewport. The tool tests the full projected face quadrilateral, rather than its center only.
-4. Press the left mouse button over the desired face and drag. That face alone moves along its transformed normal; the dock pane updates from the same authoritative state source.
+1. Run **Smart Section Box**. The dock pane uses a clean light theme and has an explicit **1. Create or Refit** section. Select **Fit to Model** to create an initial box around the complete model, or **Fit to Selection** to create one around selected items. This is the required first step; the exact-coordinate controls remain disabled until Navisworks accepts a box.
+2. Click **Enable Face Pull in 3D View**. This activates Smart Section Box’s custom interaction mode and the status panel confirms it. Custom tools are exclusive in Navisworks: selecting the native **Move**, **Rotate**, or **Scale** tool replaces Face Pull, so click **Enable Face Pull in 3D View** again whenever one of those native tools was used.
+3. Use **2. Edit Section Box** for exact Min/Max X, Y, and Z values. There are no sliders, so the dock pane remains usable when narrow. The **On** checkbox enables/disables the current box and **Live** controls whether a face drag updates the model continuously.
+4. With Face Pull active, move the pointer over a visible native section-box face in the active 3D viewport, press the left mouse button, and drag. The tool tests the full projected face quadrilateral, rather than its center only, and moves that face alone along its transformed normal.
 5. Hold **Shift** for the configurable coarse multiplier (default 2.0) or **Ctrl** for the configurable fine multiplier (default 0.25). Release to apply the exact final state immediately. Press **Esc** instead to restore the state at mouse-down.
 
 > **First-use expectation:** a box fitted to the whole model initially produces little or no visible cut because it encloses the full model. Drag one of its faces inward, or fit to a selected group, to create a visible cut.
@@ -166,7 +166,7 @@ Validate the compiled plug-in in an installed Navisworks 2024 host before produc
 | The command does not appear | Confirm the DLL is in a Navisworks 2024 plug-in folder and that it was compiled against the matching Manage/Simulate 2024 API DLL. |
 | Build fails resolving `Autodesk.Navisworks.Api.dll` | Set `NavisworksInstallDir` to the installed product folder. |
 | First box creation fails | Click **Read Native Box**, then inspect the add-in log. The add-in now emits Navisworks’ verified `ClipPlaneSet`/`OrientedBox3D` fallback schema automatically. |
-| A face does not capture | Confirm the box was created successfully, clipping is **On**, and the pointer is inside or close to a projected native box face; then use **Read Native Box** to synchronize the UI. |
+| A face does not capture | Click **Enable Face Pull in 3D View**. Confirm the box was created successfully, clipping is **On**, and the pointer is inside or close to a projected native box face. Do not leave the native **Move**, **Rotate**, or **Scale** tool active. |
 | Navigation is blocked | Verify a mouse button was released. Press **Esc** to cancel the drag transaction. |
 | UI and viewport differ | Click **Read Native Box**. The next native payload becomes the source template. |
 | The pane is clipped or controls overlap | Deploy the current DLL, delete the prior `SmartSectionBox.bundle`, then recreate the bundle from `Deployment/SmartSectionBox.bundle`. The revised pane has no sliders and uses a responsive host. |

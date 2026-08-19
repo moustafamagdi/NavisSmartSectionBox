@@ -53,7 +53,11 @@ namespace Autodesk.Navisworks.Api
     public class ModelItemCollection : List<ModelItem> { }
     public class DocumentCurrentSelection { public ModelItemCollection SelectedItems { get; set; } = new ModelItemCollection(); }
     public class Model { public ModelItem RootItem { get; set; } }
-    public class DocumentTool { }
+    public class DocumentTool
+    {
+        public string CustomToolPluginId { get; set; }
+        public void SetCustomToolPlugin(object plugin) { }
+    }
     public class Document
     {
         public bool IsClear { get; set; }
@@ -70,6 +74,7 @@ namespace Autodesk.Navisworks.Api
         public static Document ActiveDocument { get; set; }
         public static Document MainDocument { get; set; }
         public static bool IsAutomated { get; set; }
+        public static PluginManager Plugins { get; set; } = new PluginManager();
     }
 }
 

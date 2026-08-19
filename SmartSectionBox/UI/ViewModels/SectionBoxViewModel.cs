@@ -29,6 +29,7 @@ namespace SmartSectionBox.UI.ViewModels
             SectionBoxToolPlugin.HoverChanged += OnHoverChanged;
 
             RefreshCommand = new DelegateCommand(_ => Refresh());
+            ActivateFacePullCommand = new DelegateCommand(_ => ActivateFacePull());
             FitSelectionCommand = new DelegateCommand(_ => service.FitToSelection());
             FitModelCommand = new DelegateCommand(_ => service.FitToModel());
             ResetCommand = new DelegateCommand(_ => service.ResetToNoClip());
@@ -43,6 +44,7 @@ namespace SmartSectionBox.UI.ViewModels
         public event PropertyChangedEventHandler PropertyChanged;
 
         public ICommand RefreshCommand { get; }
+        public ICommand ActivateFacePullCommand { get; }
         public ICommand FitSelectionCommand { get; }
         public ICommand FitModelCommand { get; }
         public ICommand ResetCommand { get; }
@@ -111,6 +113,13 @@ namespace SmartSectionBox.UI.ViewModels
         {
             var snapshot = service.RefreshFromNative();
             if (snapshot != null) ApplySnapshot(snapshot);
+        }
+
+        private void ActivateFacePull()
+        {
+            string message;
+            SmartSectionBoxRuntime.TryActivateFacePull(out message);
+            Status = message;
         }
 
         private void UpdateCoordinate(SectionBoxFaceId face, double value)

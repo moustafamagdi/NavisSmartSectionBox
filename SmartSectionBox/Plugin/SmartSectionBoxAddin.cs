@@ -21,7 +21,11 @@ namespace SmartSectionBox.Plugin
                 }
 
                 ShowDockPane();
-                ActivateTool();
+                string facePullMessage;
+                if (!SmartSectionBoxRuntime.TryActivateFacePull(out facePullMessage))
+                {
+                    throw new InvalidOperationException(facePullMessage);
+                }
                 if (!SmartSectionBoxRuntime.Service.EnableSectioning(true))
                 {
                     Logger.Warn("Smart Section Box was activated, but clipping could not be enabled from the current native payload.");
@@ -57,11 +61,5 @@ namespace SmartSectionBox.Plugin
             pane.ActivatePane();
         }
 
-        private static void ActivateTool()
-        {
-            var record = Application.Plugins.FindPlugin(ToolPluginId) as ToolPluginRecord;
-            if (record == null || !record.IsEnabled) throw new InvalidOperationException("The Smart Section Box interaction tool is unavailable.");
-            Application.MainDocument.Tool.SetCustomToolPlugin(record.LoadPlugin());
-        }
     }
 }
