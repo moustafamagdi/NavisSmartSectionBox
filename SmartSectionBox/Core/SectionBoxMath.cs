@@ -76,6 +76,53 @@ namespace SmartSectionBox.Core
             return RotateX(y, -DegreesToRadians(state.RotationX));
         }
 
+        /// <summary>
+        /// Moves one oriented-box face along its outward world normal while preserving the
+        /// opposite oriented face. Navisworks stores Min/Max as a box centre and extents in a
+        /// world-coordinate payload plus a rotation. Therefore a rotated X/Y face pull must move
+        /// the stored centre along the rotated normal as well as change the relevant half-extent;
+        /// changing one raw Min/Max component alone distorts the rendered native box.
+        /// </summary>
+        public static void MoveFaceAlongOutwardNormal(
+            SectionBoxState state,
+            SectionBoxFaceId faceId,
+            double outwardDistance,
+            double minimumThickness)
+        {
+            if (state == null) throw new ArgumentNullException(nameof(state));
+
+            SectionBoxAxis axis;
+            bool positiveSide;
+            FaceDefinition(faceId, out axis, out positiveSide);
+
+            var halfX = Math.Max(0, (state.MaxX - state.MinX) * 0.5);
+            var halfY = Math.Max(0, (state.MaxY - state.MinY) * 0.5);
+            var halfZ = Math.Max(0, (state.MaxZ - state.MinZ) * 0.5);
+            var minimumHalfExtent = Math.Max(minimumThickness, 1e-9) * 0.5;
+            var requestedHalfExtent = HalfExtent(axis, halfX, halfY, halfZ) + outwardDistance * 0.5;
+            var resultingHalfExtent = Math.Max(minimumHalfExtent, requestedHalfExtent);
+
+            // The clamp can shorten a very large inward request. Use the actual applied motion
+            // for the centre shift so the stationary opposite face remains stationary even at the
+            // minimum-thickness limit.
+            var appliedOutwardDistance = (resultingHalfExtent - HalfExtent(axis, halfX, halfY, halfZ)) * 2.0;
+            SetHalfExtent(axis, resultingHalfExtent, ref halfX, ref halfY, ref halfZ);
+
+            var rawCentre = new Vector3(
+                (state.MinX + state.MaxX) * 0.5,
+                (state.MinY + state.MaxY) * 0.5,
+                (state.MinZ + state.MaxZ) * 0.5);
+            var outwardNormal = RotateLocal(LocalAxisNormal(axis, positiveSide), state).Normalized();
+            var shiftedCentre = rawCentre + outwardNormal * (appliedOutwardDistance * 0.5);
+
+            state.MinX = shiftedCentre.X - halfX;
+            state.MaxX = shiftedCentre.X + halfX;
+            state.MinY = shiftedCentre.Y - halfY;
+            state.MaxY = shiftedCentre.Y + halfY;
+            state.MinZ = shiftedCentre.Z - halfZ;
+            state.MaxZ = shiftedCentre.Z + halfZ;
+        }
+
         public static Bounds3D Union(Bounds3D first, Bounds3D second)
         {
             if (!first.IsValid) return second;
@@ -89,6 +136,42 @@ namespace SmartSectionBox.Core
         {
             var p = Math.Max(0, padding);
             return new Bounds3D(bounds.Min - new Vector3(p, p, p), bounds.Max + new Vector3(p, p, p));
+        }
+
+        private static double HalfExtent(SectionBoxAxis axis, double halfX, double halfY, double halfZ)
+        {
+            switch (axis)
+            {
+                case SectionBoxAxis.X: return halfX;
+                case SectionBoxAxis.Y: return halfY;
+                case SectionBoxAxis.Z: return halfZ;
+                default: throw new ArgumentOutOfRangeException(nameof(axis));
+            }
+        }
+
+        private static void SetHalfExtent(SectionBoxAxis axis, double value, ref double halfX, ref double halfY, ref double halfZ)
+        {
+            switch (axis)
+            {
+                case SectionBoxAxis.X: halfX = value; return;
+                case SectionBoxAxis.Y: halfY = value; return;
+                case SectionBoxAxis.Z: halfZ = value; return;
+                default: throw new ArgumentOutOfRangeException(nameof(axis));
+            }
+        }
+
+        private static void FaceDefinition(SectionBoxFaceId faceId, out SectionBoxAxis axis, out bool positiveSide)
+        {
+            switch (faceId)
+            {
+                case SectionBoxFaceId.MinX: axis = SectionBoxAxis.X; positiveSide = false; return;
+                case SectionBoxFaceId.MaxX: axis = SectionBoxAxis.X; positiveSide = true; return;
+                case SectionBoxFaceId.MinY: axis = SectionBoxAxis.Y; positiveSide = false; return;
+                case SectionBoxFaceId.MaxY: axis = SectionBoxAxis.Y; positiveSide = true; return;
+                case SectionBoxFaceId.MinZ: axis = SectionBoxAxis.Z; positiveSide = false; return;
+                case SectionBoxFaceId.MaxZ: axis = SectionBoxAxis.Z; positiveSide = true; return;
+                default: throw new ArgumentOutOfRangeException(nameof(faceId));
+            }
         }
 
         private static SectionBoxFace CreateFace(

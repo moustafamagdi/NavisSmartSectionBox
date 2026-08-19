@@ -12,8 +12,8 @@
 | Face targeting | A calibrated camera ray intersects the six oriented-box planes in world space. Hits are bounded in face-local UV coordinates, filtered by ray-facing direction, and ordered by true ray distance `t`. |
 | Clipping | The public 2024 `View.GetClippingPlanes`, `TrySetClippingPlanes`, and `SetClippingPlanes` JSON contract is used. Native JSON is preserved as a template, avoiding a hard dependency on an undocumented DTO. |
 | Camera behavior | `Viewpoint.Position`, quaternion `Rotation`, focal-plane extents, and projection type construct perspective and orthographic rays. `View.ProjectPoint` verifies each camera state before ray picking is enabled. |
-| Box safety | Only the selected local face coordinate changes. Minimum thickness clamps prevent min/max inversion. |
-| Rotation | Corner creation, face normals, hit testing, and drag deltas use the same X-Y-Z Euler transform. Drag deltas are inverse-rotated into box-local coordinates before a face coordinate changes. |
+| Box safety | Only the selected oriented face moves; the opposite oriented face remains fixed. Minimum thickness clamps prevent inversion. |
+| Rotation | Corner creation, face normals, hit testing, and drag deltas use the same X-Y-Z Euler transform. A drag moves the raw box centre along the captured rotated normal and changes only that axis’s half-extent, preserving the opposite oriented face. |
 | Dock pane | Official `DockPanePlugin` plus `ElementHost` WPF hosting; only activation, status, and opt-in diagnostics are exposed. |
 | Coordinate fields, sliders, and presets | Deliberately omitted from the user interface; native viewport face dragging is the sole editing workflow. |
 | Diagnostics | Rolling log files under `%AppData%\NavisworksSmartSectionBox\Logs`. |

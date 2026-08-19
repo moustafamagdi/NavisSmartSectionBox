@@ -44,7 +44,7 @@ namespace SmartSectionBox.Interaction
                         " screenNormal=" + Point(normal.X, normal.Y));
         }
 
-        public static void LogDragEnd(int startX, int startY, int endX, int endY, SectionBoxFaceId face, double initialCoordinate, double finalCoordinate, bool applied)
+        public static void LogDragEnd(int startX, int startY, int endX, int endY, SectionBoxFaceId face, double initialCoordinate, double finalCoordinate, SectionBoxState finalState, bool applied)
         {
             if (!Enabled) return;
             Logger.Info("FACE_DIAGNOSTIC DRAG_END start=" + Point(startX, startY) +
@@ -52,6 +52,7 @@ namespace SmartSectionBox.Interaction
                         " face=" + face +
                         " initial=" + Number(initialCoordinate) +
                         " final=" + Number(finalCoordinate) +
+                        " finalBox=" + Box(finalState) +
                         " applied=" + applied);
         }
 

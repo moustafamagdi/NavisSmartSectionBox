@@ -128,10 +128,11 @@ namespace SmartSectionBox.Interaction
                 var face = dragController.DraggedFaceId;
                 var initialCoordinate = dragController.InitialCoordinate;
                 var finalCoordinate = dragController.WorkingCoordinate;
+                var finalState = dragController.WorkingStateSnapshot;
                 var committed = dragController.Commit();
                 var sequenceOwned = ownsMouseSequence;
                 ownsMouseSequence = false;
-                InteractionDiagnostics.LogDragEnd(dragController.MouseStartX, dragController.MouseStartY, x, y, face, initialCoordinate, finalCoordinate, committed);
+                InteractionDiagnostics.LogDragEnd(dragController.MouseStartX, dragController.MouseStartY, x, y, face, initialCoordinate, finalCoordinate, finalState, committed);
                 PublishHover(FaceHoverState.None);
                 view.RequestDelayedRedraw(ViewRedrawRequests.Render);
                 return committed || sequenceOwned;

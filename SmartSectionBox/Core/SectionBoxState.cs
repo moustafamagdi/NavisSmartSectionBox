@@ -4,7 +4,7 @@ namespace SmartSectionBox.Core
 {
     /// <summary>
     /// UI-independent box state. Coordinates are always stored in Navisworks model units.
-    /// Rotations are radians around local X, Y and Z, applied in X-Y-Z order.
+    /// Rotations are Navisworks degree values around local X, Y and Z, applied in X-Y-Z order.
     /// </summary>
     public sealed class SectionBoxState
     {

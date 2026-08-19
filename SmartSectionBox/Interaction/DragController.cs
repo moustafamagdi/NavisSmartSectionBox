@@ -52,8 +52,8 @@ namespace SmartSectionBox.Interaction
         public FaceHoverState Hover { get; private set; } = FaceHoverState.None;
         public bool LiveUpdates { get; set; } = true;
         public double ShiftMultiplier { get; set; } = 2.0;
-        // Retained as a non-breaking public property. Ctrl is reserved for underlay selection
-        // at mouse-down and is deliberately not read while a face is captured.
+        // Retained as a non-breaking public property for existing callers. Front-facing-only
+        // selection does not use Ctrl during a captured drag.
         public double CtrlMultiplier { get; set; } = 0.25;
         public SectionBoxFaceId DraggedFaceId => draggedFace == null ? default(SectionBoxFaceId) : draggedFace.Id;
         public int MouseStartX => mouseStartX;
@@ -63,6 +63,7 @@ namespace SmartSectionBox.Interaction
         public CameraRayCalibration DragCalibration => dragCalibration;
         public double InitialCoordinate => draggedFace == null || initialState == null ? 0 : initialState.GetFaceCoordinate(draggedFace.Id);
         public double WorkingCoordinate => draggedFace == null || workingState == null ? 0 : workingState.GetFaceCoordinate(draggedFace.Id);
+        public SectionBoxState WorkingStateSnapshot => workingState == null ? null : workingState.Clone();
 
         public void UpdateHover(FaceHitResult hit)
         {
@@ -100,15 +101,14 @@ namespace SmartSectionBox.Interaction
         {
             if (State != DragState.Dragging || draggedFace == null || workingState == null || view == null) return false;
 
-            double coordinateDelta;
-            if (!TryGetRayCoordinateDelta(x, y, modifiers, view, out coordinateDelta))
+            double outwardDistance;
+            if (!TryGetRayOutwardDistance(x, y, modifiers, view, out outwardDistance))
             {
-                coordinateDelta = GetProjectedNormalCoordinateDelta(x, y, modifiers, view);
+                outwardDistance = GetProjectedNormalOutwardDistance(x, y, modifiers, view);
             }
 
-            var updatedCoordinate = initialState.GetFaceCoordinate(draggedFace.Id) + coordinateDelta;
             workingState = initialState.Clone();
-            workingState.SetFaceCoordinate(draggedFace.Id, updatedCoordinate, service.MinimumBoxThickness);
+            SectionBoxMath.MoveFaceAlongOutwardNormal(workingState, draggedFace.Id, outwardDistance, service.MinimumBoxThickness);
             Hover = FaceHoverState.FromFace(draggedFace, workingState.GetFaceCoordinate(draggedFace.Id));
             if (LiveUpdates) service.SetBox(workingState);
             return true;
@@ -185,9 +185,9 @@ namespace SmartSectionBox.Interaction
             return true;
         }
 
-        private bool TryGetRayCoordinateDelta(int x, int y, KeyModifiers modifiers, View view, out double coordinateDelta)
+        private bool TryGetRayOutwardDistance(int x, int y, KeyModifiers modifiers, View view, out double outwardDistance)
         {
-            coordinateDelta = 0;
+            outwardDistance = 0;
             if (!rayDragActive) return false;
 
             CameraRay ray;
@@ -207,12 +207,12 @@ namespace SmartSectionBox.Interaction
 
             var multiplier = modifiers.HasFlag(KeyModifiers.Shift) ? ShiftMultiplier : 1.0;
             var signedWorldOffset = Vector3.Dot(currentPoint - dragStartPoint, draggedFace.Normal.Normalized()) * multiplier;
-            coordinateDelta = FaceCoordinateDeltaFromNormalOffset(draggedFace, signedWorldOffset);
+            outwardDistance = signedWorldOffset;
             dragCalibration = calibration;
             return true;
         }
 
-        private double GetProjectedNormalCoordinateDelta(int x, int y, KeyModifiers modifiers, View view)
+        private double GetProjectedNormalOutwardDistance(int x, int y, KeyModifiers modifiers, View view)
         {
             var dx = x - mouseStartX;
             var dy = y - mouseStartY;
@@ -230,19 +230,7 @@ namespace SmartSectionBox.Interaction
             }
 
             var multiplier = modifiers.HasFlag(KeyModifiers.Shift) ? ShiftMultiplier : 1.0;
-            var worldDistance = projection.ScreenPixelsToWorldDistance(signedPixels * multiplier, draggedFace.Center, view);
-            return FaceCoordinateDeltaFromNormalOffset(draggedFace, worldDistance);
-        }
-
-        internal static double FaceCoordinateDeltaFromNormalOffset(SectionBoxFace face, double signedWorldOffset)
-        {
-            // Face normals are already created from the same rotated local axis as the box
-            // geometry. Once movement has been resolved along that normal, applying another
-            // inverse Euler rotation is redundant and can couple an X/Y pull to another local
-            // component for a rotated native box. The face side alone defines the coordinate
-            // sign: outward positive-side motion increases Max; outward negative-side motion
-            // decreases Min. SetFaceCoordinate then mutates only that captured boundary.
-            return face != null && face.PositiveSide ? signedWorldOffset : -signedWorldOffset;
+            return projection.ScreenPixelsToWorldDistance(signedPixels * multiplier, draggedFace.Center, view);
         }
     }
 }
