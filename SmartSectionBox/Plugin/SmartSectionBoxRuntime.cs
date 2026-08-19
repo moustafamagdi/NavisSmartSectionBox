@@ -37,7 +37,7 @@ namespace SmartSectionBox.Plugin
                 }
 
                 document.Tool.SetCustomToolPlugin(record.LoadPlugin());
-                message = "Smart Section Box is active. Drag a visible face; hold Ctrl when pressing to select an underlay face.";
+                message = "Smart Section Box is active. Drag a camera-facing face; orbit the view to reach another side.";
                 return true;
             }
             catch (Exception ex)

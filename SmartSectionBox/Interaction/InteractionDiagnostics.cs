@@ -24,7 +24,7 @@ namespace SmartSectionBox.Interaction
             builder.Append(" captureSource=").Append(captureSource ?? "none");
             builder.Append(" selected=").Append(FaceName(probe == null ? null : probe.Selected));
             builder.Append(" selectedIndex=").Append(probe == null ? -1 : probe.SelectedIndex);
-            builder.Append(" selectionSet=").Append(probe != null && probe.IsUnderlaySelection ? "underlay" : "front");
+            builder.Append(" selectionSet=front-facing-only");
             builder.Append(" picker=").Append(probe != null && probe.UsedRayPicker ? "ray" : "fallback-2d");
             builder.Append(" calibration=").Append(Calibration(probe == null ? null : probe.Calibration));
             builder.Append(" candidateCount=").Append(probe == null || probe.Candidates == null ? 0 : probe.Candidates.Count);

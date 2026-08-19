@@ -27,7 +27,7 @@
                 <StackPanel>
                     <TextBlock Text="DIRECT FACE MANIPULATION" FontSize="11" FontWeight="SemiBold" Foreground="#0B5F93" Margin="1,0,1,5" />
                     <Button Content="Activate Smart Section Box" Command="{Binding ActivateCommand}" />
-                    <TextBlock Text="Custom box drawing is disabled for performance. Hold Ctrl when pressing to pick from the back/underlay faces; click again to cycle if more than one is under the cursor."
+                    <TextBlock Text="Custom box drawing is disabled for performance. Drag only a camera-facing face. Orbit the view to make another box side available."
                                Foreground="#52606D" FontSize="11" TextWrapping="Wrap" Margin="2,6,2,0" />
                     <CheckBox Content="Record face-pull diagnostics" IsChecked="{Binding InteractionDiagnosticsEnabled, Mode=TwoWay}"
                               ToolTip="Logs pointer location, candidate faces, selected face, and drag result." />

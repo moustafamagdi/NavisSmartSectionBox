@@ -65,15 +65,15 @@ internal static class CameraRayHarness
             Enabled = true
         };
         var tester = new FaceHitTester(new CameraProjection());
-        var front = tester.Probe(state, view, view.Width / 2, view.Height / 2, 10, false);
+        var front = tester.Probe(state, view, view.Width / 2, view.Height / 2, 10);
         Assert(front.UsedRayPicker, "Large-coordinate OBB picking must use the calibrated ray branch.");
         Assert(front.Selected != null && front.Selected.Face.Id == SectionBoxFaceId.MaxZ, "Nearest front-facing face must win by ray distance.");
         Assert(front.Selected.RayDistance > 0, "Front hit must expose a positive true ray distance.");
-
-        var underlay = tester.Probe(state, view, view.Width / 2, view.Height / 2, 10, true);
-        Assert(underlay.UsedRayPicker, "Underlay OBB picking must use the calibrated ray branch.");
-        Assert(underlay.Selected != null && underlay.Selected.Face.Id == SectionBoxFaceId.MinZ, "Ctrl underlay candidate must be the ray exit face.");
-        Assert(underlay.Selected.RayDistance > front.Selected.RayDistance, "Underlay face must sort behind the front face using real ray distance.");
+        foreach (var candidate in front.Candidates)
+        {
+            Assert(candidate.IsFrontFacing, "Front-facing-only picking must reject every underlay candidate.");
+            Assert(candidate.Face.Id != SectionBoxFaceId.MinZ, "The ray exit face must never be exposed as a candidate.");
+        }
     }
 
     private static void VerifyCalibrationFailureFallsBackSafely()
@@ -96,7 +96,7 @@ internal static class CameraRayHarness
             MaxZ = 20,
             Enabled = true
         };
-        var probe = new FaceHitTester(new CameraProjection()).Probe(state, view, view.Width / 2, view.Height / 2, 10, false);
+        var probe = new FaceHitTester(new CameraProjection()).Probe(state, view, view.Width / 2, view.Height / 2, 10);
         Assert(!probe.UsedRayPicker, "A failed calibration must route picking to the explicit legacy fallback.");
         Assert(probe.Calibration != null && !probe.Calibration.IsValid, "The fallback probe must retain the calibration failure for diagnostics.");
     }
@@ -122,7 +122,7 @@ internal static class CameraRayHarness
         var tester = new FaceHitTester(new CameraProjection());
         var startX = view.Width / 2;
         var startY = view.Height / 2;
-        var selected = tester.Probe(initial, view, startX, startY, 10, false).Selected;
+        var selected = tester.Probe(initial, view, startX, startY, 10).Selected;
         Assert(selected != null && selected.Face.Id == SectionBoxFaceId.MaxZ, "The oblique drag test must capture MaxZ.");
 
         var controller = new DragController(service, new CameraProjection());

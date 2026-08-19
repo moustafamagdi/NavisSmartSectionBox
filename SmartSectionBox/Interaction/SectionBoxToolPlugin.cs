@@ -20,7 +20,6 @@ namespace SmartSectionBox.Interaction
         private FaceHitResult lastHoverHit;
         private int lastHoverX;
         private int lastHoverY;
-        private bool lastHoverWasUnderlay;
         private bool ownsMouseSequence;
 
         public static event EventHandler<FaceHoverState> HoverChanged;
@@ -42,9 +41,8 @@ namespace SmartSectionBox.Interaction
                 if (dragController.State == DragState.Dragging) return ownsMouseSequence;
 
                 var state = SmartSectionBoxRuntime.Service.GetCurrentBox();
-                var selectUnderlay = modifiers.HasFlag(KeyModifiers.Ctrl);
-                var probe = hitTester.Probe(state, view, x, y, 10.0, selectUnderlay);
-                RememberHoverHit(probe.Selected, x, y, selectUnderlay);
+                var probe = hitTester.Probe(state, view, x, y, 10.0);
+                RememberHoverHit(probe.Selected, x, y);
                 dragController.UpdateHover(probe.Selected);
                 PublishHover(dragController.Hover);
                 return false;
@@ -81,11 +79,10 @@ namespace SmartSectionBox.Interaction
                 EnsureController();
                 if (button != LeftMouseButton) return false;
                 var state = SmartSectionBoxRuntime.Service.GetCurrentBox();
-                var selectUnderlay = modifiers.HasFlag(KeyModifiers.Ctrl);
-                var probe = hitTester.Probe(state, view, x, y, 10.0, selectUnderlay);
-                var hit = hitTester.SelectCandidate(probe, x, y);
+                var probe = hitTester.Probe(state, view, x, y, 10.0);
+                var hit = hitTester.SelectCandidate(probe);
                 var captureSource = "fresh-probe";
-                if (hit == null && TryGetRecentHoverHit(x, y, selectUnderlay, out hit))
+                if (hit == null && TryGetRecentHoverHit(x, y, out hit))
                 {
                     // ProjectPoint can change transiently between MouseMove and MouseDown. The
                     // cursor already received this exact face as pre-selection feedback, so
@@ -194,18 +191,17 @@ namespace SmartSectionBox.Interaction
             return CursorManager.GetCursor(dragController.Hover, dragController.State);
         }
 
-        private void RememberHoverHit(FaceHitResult hit, int x, int y, bool selectUnderlay)
+        private void RememberHoverHit(FaceHitResult hit, int x, int y)
         {
             lastHoverHit = hit;
             lastHoverX = x;
             lastHoverY = y;
-            lastHoverWasUnderlay = selectUnderlay;
         }
 
-        private bool TryGetRecentHoverHit(int x, int y, bool selectUnderlay, out FaceHitResult hit)
+        private bool TryGetRecentHoverHit(int x, int y, out FaceHitResult hit)
         {
             hit = null;
-            if (lastHoverHit == null || lastHoverHit.Face == null || lastHoverWasUnderlay != selectUnderlay) return false;
+            if (lastHoverHit == null || lastHoverHit.Face == null) return false;
             if (Math.Abs(x - lastHoverX) > HoverCaptureTolerancePixels || Math.Abs(y - lastHoverY) > HoverCaptureTolerancePixels) return false;
             hit = lastHoverHit;
             return true;
@@ -214,7 +210,6 @@ namespace SmartSectionBox.Interaction
         private void ClearHoverHit()
         {
             lastHoverHit = null;
-            lastHoverWasUnderlay = false;
         }
 
         private static void PublishHover(FaceHoverState hover)

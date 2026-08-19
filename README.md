@@ -8,7 +8,7 @@
 
 | Capability | Implementation |
 |---|---|
-| Direct manipulation | `ToolPlugin` hover, mouse capture, absolute drag transaction, Escape cancellation, final mouse-up commit, and Shift coarse multiplier. Ctrl is reserved for underlay picking. |
+| Direct manipulation | `ToolPlugin` hover, mouse capture, absolute drag transaction, Escape cancellation, final mouse-up commit, and Shift coarse multiplier. Only camera-facing faces are eligible; orbit the view to reach another side. |
 | Face targeting | A calibrated camera ray intersects the six oriented-box planes in world space. Hits are bounded in face-local UV coordinates, filtered by ray-facing direction, and ordered by true ray distance `t`. |
 | Clipping | The public 2024 `View.GetClippingPlanes`, `TrySetClippingPlanes`, and `SetClippingPlanes` JSON contract is used. Native JSON is preserved as a template, avoiding a hard dependency on an undocumented DTO. |
 | Camera behavior | `Viewpoint.Position`, quaternion `Rotation`, focal-plane extents, and projection type construct perspective and orthographic rays. `View.ProjectPoint` verifies each camera state before ray picking is enabled. |
@@ -87,7 +87,7 @@ The dock pane is intentionally a minimal launcher. All section-box editing happe
 1. Either select one or more model elements, **or** create a standard Box section through Navisworks first.
 2. Run **Smart Section Box** and click **Activate Smart Section Box**. When a native box exists, the tool adopts it unchanged. When no native box exists, the tool fits a new box to the current element selection. If neither condition is met, it gives an instruction and does not create a model-wide box.
 3. Navisworks remains the internal clipping engine. To preserve viewport performance on large federated models, Smart Section Box does **not** draw a custom box overlay. The light-blue hover status row in the dock pane reports the face that will be captured, such as `Face: +X (1968.007)`, without adding any viewport rendering.
-4. Direct interaction uses the current section-box geometry internally. Normal input selects the nearest valid camera-facing face. Hold **Ctrl** when pressing to select the back/underlay set; repeat a Ctrl click at nearly the same location within roughly two seconds to cycle deterministically through overlapping underlay faces.
+4. Direct interaction uses the current section-box geometry internally. Each press selects only the nearest valid **camera-facing** face. The tool never selects a hidden or underlay face. To edit another side, orbit the Navisworks view until that face is visible and camera-facing, then drag it normally.
 5. Hold **Shift** for the configurable coarse multiplier (default 2.0). Release to apply the final state immediately. Press **Esc** instead to restore the state at mouse-down.
 
 > The native Navisworks box is deliberately not placed into Move mode after activation, and no custom wireframe is rendered. This performance-focused mode updates clipping without additional viewport drawing.
@@ -169,7 +169,7 @@ Validate the compiled plug-in in an installed Navisworks 2024 host before produc
 | Camera | Perspective and orthographic views; front, side, top, arbitrary orbit; close and distant camera. Confirm the diagnostics show `picker=ray` and `calibration=valid`. |
 | Geometry | Small, large, asymmetric, and arbitrarily rotated section boxes; faces partly outside the viewport; a face with a corner behind the camera. |
 | Models | Single NWD, federated NWD, large coordinate offset, and selection across models. |
-| Interaction | Hover, face mouse-down, live drag, mouse-up final exactness, Escape cancel, Shift, Ctrl underlay, repeated Ctrl click cycling, and navigation away from faces. |
+| Interaction | Hover, face mouse-down, live drag, mouse-up final exactness, Escape cancel, Shift, camera orbit to expose each box side, and navigation away from faces. |
 | JSON compatibility | Create a native Box in the target Navisworks build, Refresh, drag every face, inspect `%AppData%\NavisworksSmartSectionBox\Logs` for rejection messages, and retain an anonymized `GetClippingPlanes()` sample for regression tests. |
 
 ## Troubleshooting
@@ -179,12 +179,12 @@ Validate the compiled plug-in in an installed Navisworks 2024 host before produc
 | The command does not appear | Confirm the DLL is in a Navisworks 2024 plug-in folder and that it was compiled against the matching Manage/Simulate 2024 API DLL. |
 | Build fails resolving `Autodesk.Navisworks.Api.dll` | Set `NavisworksInstallDir` to the installed product folder. |
 | First box creation fails | Select valid model elements, activate the tool, then inspect the add-in log if Navisworks rejects the verified `ClipPlaneSet`/`OrientedBox3D` payload. |
-| A face does not capture | Confirm an element is selected or a native Navisworks Box section already exists, then click **Activate Smart Section Box**. Hold **Ctrl** for the invisible overlapping back-face set. |
+| A face does not capture | Confirm an element is selected or a native Navisworks Box section already exists, then click **Activate Smart Section Box**. Orbit the view until the intended box face is visible and camera-facing, then click well inside that face. |
 | Navigation is blocked | Verify a mouse button was released. Press **Esc** to cancel the drag transaction. |
 | UI and viewport differ | Reactivate the tool to adopt the current native box, then inspect the diagnostics log if clipping does not match the current section-box state. |
 | The pane is clipped or controls overlap | Deploy the current DLL, delete the prior `SmartSectionBox.bundle`, then recreate the bundle from `Deployment/SmartSectionBox.bundle`. The revised pane has no sliders and uses a responsive host. |
 | Activation reports no target | Select at least one model element, or create a native Navisworks Box section, then activate the tool again. |
-| The wrong face is selected | Normal drags use the nearest valid camera-facing ray hit. Hold **Ctrl** for the underlay set, then Ctrl-click again at nearly the same point to cycle overlapping candidates. Enable diagnostics and confirm `picker=ray` with `calibration=valid`; share those `FACE_DIAGNOSTIC` lines and a viewport screenshot if selection is still unexpected. |
+| The wrong face is selected | Drags use the nearest valid camera-facing ray hit only. Orbit the view until the intended face is visible, then click well inside its center. Enable diagnostics and confirm `picker=ray` with `calibration=valid`; share those `FACE_DIAGNOSTIC` lines and a viewport screenshot if selection is still unexpected. |
 | Diagnostics show `picker=fallback-2d` | The current camera state did not round-trip through `View.ProjectPoint` within the safety threshold. Share the `FACE_DIAGNOSTIC` lines and viewport screenshot; do not tune selection tolerance blindly. |
 | A face pulls in the opposite direction | Capture diagnostics and record the `driver` value. Oblique ray drags use a fixed camera-reference plane; direct-on faces use the documented screen-up fallback. |
 
