@@ -1,7 +1,6 @@
 using System;
 using System.Windows;
 using System.Windows.Controls;
-using SmartSectionBox.Persistence;
 using SmartSectionBox.Plugin;
 using SmartSectionBox.UI.ViewModels;
 
@@ -14,7 +13,7 @@ namespace SmartSectionBox.UI
         public SectionBoxDockPane()
         {
             InitializeComponent();
-            viewModel = new SectionBoxViewModel(SmartSectionBoxRuntime.Service, new PresetStore());
+            viewModel = new SectionBoxViewModel(SmartSectionBoxRuntime.Service);
             DataContext = viewModel;
             Unloaded += OnUnloaded;
         }

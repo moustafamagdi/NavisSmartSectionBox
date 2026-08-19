@@ -133,6 +133,47 @@ namespace SmartSectionBox.Core
             return SetBox(state, true);
         }
 
+        public bool TryAdoptExistingOrFitToSelection(out string message)
+        {
+            try
+            {
+                var existing = RefreshFromNative();
+                if (existing != null)
+                {
+                    if (!existing.Enabled)
+                    {
+                        existing.Enabled = true;
+                        if (!SetBox(existing, true))
+                        {
+                            message = "The existing Navisworks section box could not be activated.";
+                            return false;
+                        }
+                    }
+
+                    message = "Adopted the existing Navisworks section box. Drag the custom red faces; hold Ctrl for yellow underlay faces.";
+                    PublishStatus(message);
+                    return true;
+                }
+
+                if (!FitToSelection())
+                {
+                    message = "Select at least one model element, or create a native Navisworks Box section, then activate Smart Section Box.";
+                    return false;
+                }
+
+                message = "Created a section box around the current selection. Drag the custom red faces; hold Ctrl for yellow underlay faces.";
+                PublishStatus(message);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Unable to adopt the native section box or fit the current selection.", ex);
+                message = "Unable to start Smart Section Box. See the Smart Section Box log.";
+                PublishStatus(message);
+                return false;
+            }
+        }
+
         public bool FitToSelection()
         {
             try

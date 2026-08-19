@@ -43,6 +43,21 @@ namespace Autodesk.Navisworks.Api
         public virtual void RequestDelayedRedraw(ViewRedrawRequests requests) { }
     }
 
+    public class Color
+    {
+        public static Color FromByteRGB(byte r, byte g, byte b) { return new Color(); }
+    }
+
+    public class Graphics
+    {
+        public void Color(Color color, double opacity) { }
+        public void DepthTest(bool enabled) { }
+        public void DepthMask(bool enabled) { }
+        public void LineWidth(double width) { }
+        public void Line(Point3D start, Point3D end) { }
+        public void Triangle(Point3D point1, Point3D point2, Point3D point3, bool filled) { }
+    }
+
     public class BoundingBox3D
     {
         public Point3D Min { get; set; } = new Point3D(0, 0, 0);
@@ -123,8 +138,7 @@ namespace Autodesk.Navisworks.Api.Plugins
         public virtual bool MouseLeave(View view, double timeOffset) { return false; }
         public virtual bool KeyDown(View view, KeyModifiers modifier, ushort key, double timeOffset) { return false; }
         public virtual Cursor GetCursor(View view, KeyModifiers modifier) { return Cursor.Unhandled; }
-        public virtual void OverlayRender(View view, Graphics graphics) { }
+        public virtual void OverlayRender(View view, Autodesk.Navisworks.Api.Graphics graphics) { }
+        public virtual void Render(View view, Autodesk.Navisworks.Api.Graphics graphics) { }
     }
-
-    public class Graphics { }
 }

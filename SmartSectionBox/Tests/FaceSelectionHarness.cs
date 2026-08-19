@@ -11,12 +11,17 @@ internal static class FaceSelectionHarness
         {
             var tester = new FaceHitTester(new CameraProjection());
 
-            Assert(tester.SelectCandidate(Probe(), false, 300, 400).Face.Id == SectionBoxFaceId.MaxZ, "Default selection must choose the visible/front candidate.");
-            Assert(tester.SelectCandidate(Probe(), true, 300, 400).Face.Id == SectionBoxFaceId.MaxY, "First Ctrl selection must choose the first underlay candidate.");
-            Assert(tester.SelectCandidate(Probe(), true, 300, 400).Face.Id == SectionBoxFaceId.MinX, "Repeated Ctrl selection must cycle to the next underlay candidate.");
-            Assert(tester.SelectCandidate(Probe(), true, 600, 400).Face.Id == SectionBoxFaceId.MaxY, "A new Ctrl click location must begin with the first underlay candidate.");
+            var frontProbe = Probe(false, SectionBoxFaceId.MaxZ, SectionBoxFaceId.MaxY, SectionBoxFaceId.MinX);
+            Assert(tester.SelectCandidate(frontProbe, 300, 400).Face.Id == SectionBoxFaceId.MaxZ,
+                "Normal face selection must choose the nearest camera-facing candidate.");
+            Assert(!frontProbe.IsUnderlaySelection, "Normal face selection must use the front set.");
 
-            Console.WriteLine("All Ctrl underlay face-selection tests passed.");
+            var underlayProbe = Probe(true, SectionBoxFaceId.MinZ, SectionBoxFaceId.MinY, SectionBoxFaceId.MaxX);
+            Assert(tester.SelectCandidate(underlayProbe, 300, 400).Face.Id == SectionBoxFaceId.MinZ,
+                "Ctrl face selection must choose the nearest underlay candidate.");
+            Assert(underlayProbe.IsUnderlaySelection, "Ctrl face selection must use the underlay set.");
+
+            Console.WriteLine("All front and underlay face-selection tests passed.");
             return 0;
         }
         catch (Exception ex)
@@ -26,22 +31,15 @@ internal static class FaceSelectionHarness
         }
     }
 
-    private static FaceHitProbe Probe()
+    private static FaceHitProbe Probe(bool isUnderlay, params SectionBoxFaceId[] faceIds)
     {
-        return new FaceHitProbe
+        var candidates = new List<FaceHitResult>();
+        foreach (var faceId in faceIds)
         {
-            Candidates = new List<FaceHitResult>
-            {
-                Candidate(SectionBoxFaceId.MaxZ),
-                Candidate(SectionBoxFaceId.MaxY),
-                Candidate(SectionBoxFaceId.MinX)
-            }
-        };
-    }
+            candidates.Add(new FaceHitResult { Face = new SectionBoxFace { Id = faceId } });
+        }
 
-    private static FaceHitResult Candidate(SectionBoxFaceId id)
-    {
-        return new FaceHitResult { Face = new SectionBoxFace { Id = id } };
+        return new FaceHitProbe { Candidates = candidates, IsUnderlaySelection = isUnderlay };
     }
 
     private static void Assert(bool condition, string message)

@@ -37,7 +37,7 @@ namespace SmartSectionBox.Plugin
                 }
 
                 document.Tool.SetCustomToolPlugin(record.LoadPlugin());
-                message = "Face Pull is active. Move over a blue section-box face, then left-drag to pull that face.";
+                message = "Smart Section Box is active. Drag red faces; hold Ctrl while dragging for yellow underlay faces.";
                 return true;
             }
             catch (Exception ex)
@@ -46,6 +46,23 @@ namespace SmartSectionBox.Plugin
                 message = "Unable to activate Face Pull. See the Smart Section Box log.";
                 return false;
             }
+        }
+
+        public static bool TryStartFromExistingBoxOrSelection(out string message)
+        {
+            if (!service.TryAdoptExistingOrFitToSelection(out message)) return false;
+
+            string activationMessage;
+            if (!TryActivateFacePull(out activationMessage))
+            {
+                message = activationMessage;
+                return false;
+            }
+
+            var view = Application.MainDocument == null ? null : Application.MainDocument.ActiveView;
+            if (view != null) view.RequestDelayedRedraw(ViewRedrawRequests.Render);
+            message = message + " " + activationMessage;
+            return true;
         }
     }
 }

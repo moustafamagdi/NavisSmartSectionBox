@@ -76,22 +76,22 @@ Install **Navisworks Manage 2024** or **Navisworks Simulate 2024** and Visual St
 
 ## Install and Activate
 
-Use the checked-in [`Deployment/SmartSectionBox.bundle`](Deployment/SmartSectionBox.bundle) template rather than copying a DLL to a legacy product `Plugins` folder. Copy the Release DLL into `Contents\2024`, retain `PackageContents.xml` at the bundle root, then fully restart Navisworks. See [`Deployment/README.md`](Deployment/README.md) for the exact folder tree and diagnostics. Once the bundle is discovered, locate **Smart Section Box** in the Navisworks plug-in/ribbon command list. The command opens the dock pane, registers the custom tool, enables clipping, and tries to create a box around the active model when no native box payload is available.
+Use the checked-in [`Deployment/SmartSectionBox.bundle`](Deployment/SmartSectionBox.bundle) template rather than copying a DLL to a legacy product `Plugins` folder. Copy the Release DLL into `Contents\2024`, retain `PackageContents.xml` at the bundle root, then fully restart Navisworks. See [`Deployment/README.md`](Deployment/README.md) for the exact folder tree and diagnostics. Once the bundle is discovered, locate **Smart Section Box** in the Navisworks plug-in/ribbon command list. The command opens the minimal dock pane. Activation adopts an existing native Box section, or creates a box around currently selected elements; it does not create a model-wide box.
 
-The first click on **Fit to Model** is the recommended initialization path. The add-in emits the verified `ClipPlaneSet`/`OrientedBox3D` box schema for first-time creation and then preserves the exact native payload returned by Navisworks. If the host still rejects a write, click **Read Native Box** and inspect the add-in log before retrying.
+Click **Activate Smart Section Box** after selecting elements, or after creating a native Navisworks Box section. The add-in preserves an existing native box when present; otherwise, it emits the verified `ClipPlaneSet`/`OrientedBox3D` schema to fit the selected elements. If the host rejects a write, inspect the add-in log before retrying.
 
 ## Direct Face Dragging Workflow
 
-The dock pane is intentionally organized as a two-step workflow that remains readable in a narrow Navisworks panel.
+The dock pane is intentionally a minimal launcher. All section-box editing happens directly in the 3D viewport.
 
-1. Run **Smart Section Box**. The dock pane uses a clean light theme and has an explicit **1. Create or Refit** section. Select **Fit to Model** to create an initial box around the complete model, or **Fit to Selection** to create one around selected items. This is the required first step; the exact-coordinate controls remain disabled until Navisworks accepts a box.
-2. Click **Enable Face Pull in 3D View**. This activates Smart Section Box’s custom interaction mode and the status panel confirms it. Custom tools are exclusive in Navisworks: selecting the native **Move**, **Rotate**, or **Scale** tool replaces Face Pull, so click **Enable Face Pull in 3D View** again whenever one of those native tools was used.
-3. Use **2. Edit Section Box** for exact Min/Max X, Y, and Z values. There are no sliders, so the dock pane remains usable when narrow. The **On** checkbox enables/disables the current box and **Live** controls whether a face drag updates the model continuously.
-4. With Face Pull active, move the pointer over a visible native section-box face in the active 3D viewport, press the left mouse button, and drag. The tool tests the full projected face quadrilateral, rather than its center only, and moves that face alone along its transformed normal. Projected drag direction is derived from local box-face dimensions, avoiding the world-origin scaling error that can invert pulls in large-coordinate civil models.
-5. When several faces overlap in the viewport, a normal press-and-drag chooses the front/default candidate. Hold **Ctrl** while pressing and dragging to choose the next underlay candidate; repeat the Ctrl gesture at the same location to cycle through the available faces. The selected candidate index is written to the diagnostic log.
-6. Hold **Shift** for the configurable coarse multiplier (default 2.0). **Ctrl** is reserved for underlay face selection at mouse-down; use normal dragging after the face is captured. Release to apply the exact final state immediately. Press **Esc** instead to restore the state at mouse-down.
+1. Either select one or more model elements, **or** create a standard Box section through Navisworks first.
+2. Run **Smart Section Box** and click **Activate Smart Section Box**. When a native box exists, the tool adopts it unchanged. When no native box exists, the tool fits a new box to the current element selection. If neither condition is met, it gives an instruction and does not create a model-wide box.
+3. The native blue Move box is not used as the interaction surface. Navisworks remains the internal clipping engine, while Smart Section Box draws its own interactive skin in the viewport.
+4. **Red faces** are the three camera-facing faces. Use a normal left press-and-drag to move the red face under the pointer.
+5. **Yellow faces** are the three back/underlay faces. Hold **Ctrl** while pressing and dragging to pick from the yellow underlay set. Face sets update automatically as the camera or box moves.
+6. Hold **Shift** for the configurable coarse multiplier (default 2.0). Release to apply the final state immediately. Press **Esc** instead to restore the state at mouse-down.
 
-> **First-use expectation:** a box fitted to the whole model initially produces little or no visible cut because it encloses the full model. Drag one of its faces inward, or fit to a selected group, to create a visible cut.
+> The native Navisworks box is deliberately not placed into Move mode after activation. The custom red/yellow skin is the only intended user-facing manipulation control.
 
 When the pointer is not over a face and no face drag is active, mouse callbacks return `false`; Navisworks navigation and normal input remain available. Autodesk’s input sample demonstrates this custom-tool pattern and calls `RequestDelayedRedraw(ViewRedrawRequests.Render)` after interaction changes.
 
@@ -178,13 +178,13 @@ Validate the compiled plug-in in an installed Navisworks 2024 host before produc
 |---|---|
 | The command does not appear | Confirm the DLL is in a Navisworks 2024 plug-in folder and that it was compiled against the matching Manage/Simulate 2024 API DLL. |
 | Build fails resolving `Autodesk.Navisworks.Api.dll` | Set `NavisworksInstallDir` to the installed product folder. |
-| First box creation fails | Click **Read Native Box**, then inspect the add-in log. The add-in now emits Navisworks’ verified `ClipPlaneSet`/`OrientedBox3D` fallback schema automatically. |
-| A face does not capture | Click **Enable Face Pull in 3D View**. Confirm the box was created successfully, clipping is **On**, and the pointer is inside or close to a projected native box face. Do not leave the native **Move**, **Rotate**, or **Scale** tool active. |
+| First box creation fails | Select valid model elements, activate the tool, then inspect the add-in log if Navisworks rejects the verified `ClipPlaneSet`/`OrientedBox3D` payload. |
+| A face does not capture | Confirm an element is selected or a native Navisworks Box section already exists, then click **Activate Smart Section Box**. Drag a red face normally, or hold **Ctrl** to choose yellow underlay faces. |
 | Navigation is blocked | Verify a mouse button was released. Press **Esc** to cancel the drag transaction. |
-| UI and viewport differ | Click **Read Native Box**. The next native payload becomes the source template. |
+| UI and viewport differ | Reactivate the tool to adopt the current native box, then inspect the diagnostics log if the custom skin differs from clipping. |
 | The pane is clipped or controls overlap | Deploy the current DLL, delete the prior `SmartSectionBox.bundle`, then recreate the bundle from `Deployment/SmartSectionBox.bundle`. The revised pane has no sliders and uses a responsive host. |
-| Exact fields are disabled | Click **Fit to Model** or **Fit to Selection** first. If the status reports rejection, copy `%AppData%\\NavisworksSmartSectionBox\\Logs` for diagnosis. |
-| The wrong face is selected | Hold **Ctrl** while press-and-dragging at the same point to cycle to the next underlay candidate. Enable **Record face-pull diagnostics** and share the `FACE_DIAGNOSTIC` lines plus a viewport screenshot if selection is still unexpected. |
+| Activation reports no target | Select at least one model element, or create a native Navisworks Box section, then activate the tool again. |
+| The wrong face is selected | Normal drags use the red front-face set; hold **Ctrl** for the yellow underlay set. Enable **Record face-pull diagnostics** and share the `FACE_DIAGNOSTIC` lines plus a viewport screenshot if selection is still unexpected. |
 | A face pulls in the opposite direction | Install the current update, which derives screen direction from local face dimensions rather than distance from world origin. Capture diagnostics if a direction inversion persists. |
 
 ## References

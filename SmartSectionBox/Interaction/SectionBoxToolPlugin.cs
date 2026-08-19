@@ -13,6 +13,7 @@ namespace SmartSectionBox.Interaction
         private const ushort LeftMouseButton = 1;
         private const ushort EscapeVirtualKey = 0x1B;
         private readonly CameraProjection projection = new CameraProjection();
+        private readonly SectionBoxOverlayRenderer overlayRenderer = new SectionBoxOverlayRenderer();
         private FaceHitTester hitTester;
         private DragController dragController;
 
@@ -35,8 +36,8 @@ namespace SmartSectionBox.Interaction
                 if (dragController.State == DragState.Dragging) return false;
 
                 var state = SmartSectionBoxRuntime.Service.GetCurrentBox();
-                var hit = hitTester.HitTest(state, view, x, y);
-                dragController.UpdateHover(hit);
+                var probe = hitTester.Probe(state, view, x, y, 10.0, modifiers.HasFlag(KeyModifiers.Ctrl));
+                dragController.UpdateHover(probe.Selected);
                 PublishHover(dragController.Hover);
                 return false;
             }
@@ -72,8 +73,8 @@ namespace SmartSectionBox.Interaction
                 EnsureController();
                 if (button != LeftMouseButton) return false;
                 var state = SmartSectionBoxRuntime.Service.GetCurrentBox();
-                var probe = hitTester.Probe(state, view, x, y);
-                var hit = hitTester.SelectCandidate(probe, modifiers.HasFlag(KeyModifiers.Ctrl), x, y);
+                var probe = hitTester.Probe(state, view, x, y, 10.0, modifiers.HasFlag(KeyModifiers.Ctrl));
+                var hit = hitTester.SelectCandidate(probe, x, y);
                 var captured = dragController.Begin(hit, x, y, view);
                 InteractionDiagnostics.LogPointerDown(x, y, probe, state, captured);
                 if (captured)
@@ -157,11 +158,17 @@ namespace SmartSectionBox.Interaction
             return CursorManager.GetCursor(dragController.Hover, dragController.State);
         }
 
-        public override void OverlayRender(View view, Graphics graphics)
+        public override void Render(View view, Graphics graphics)
         {
-            // OverlayRender is intentionally reserved for a future supported face outline.
-            // Cursor and dock-pane feedback are the dependable feedback channel; no window
-            // overlay or unsupported HWND manipulation is used.
+            try
+            {
+                EnsureController();
+                overlayRenderer.Render(view, graphics, SmartSectionBoxRuntime.Service.GetCurrentBox(), dragController.Hover);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Custom Smart Section Box overlay rendering failed.", ex);
+            }
         }
 
         private static void PublishHover(FaceHoverState hover)

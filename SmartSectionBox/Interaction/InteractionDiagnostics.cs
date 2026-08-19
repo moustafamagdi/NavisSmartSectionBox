@@ -23,6 +23,7 @@ namespace SmartSectionBox.Interaction
             builder.Append(" captured=").Append(captured);
             builder.Append(" selected=").Append(FaceName(probe == null ? null : probe.Selected));
             builder.Append(" selectedIndex=").Append(probe == null ? -1 : probe.SelectedIndex);
+            builder.Append(" selectionSet=").Append(probe != null && probe.IsUnderlaySelection ? "underlay" : "front");
             builder.Append(" candidateCount=").Append(probe == null || probe.Candidates == null ? 0 : probe.Candidates.Count);
             builder.Append(" box=").Append(Box(state));
             builder.Append(" candidates=").Append(Candidates(probe));
@@ -60,6 +61,7 @@ namespace SmartSectionBox.Interaction
             if (probe == null || probe.Candidates == null || probe.Candidates.Count == 0) return "[]";
             return "[" + string.Join(" | ", probe.Candidates.Select(candidate =>
                 FaceName(candidate) +
+                " frontFacing=" + candidate.IsFrontFacing +
                 " inside=" + candidate.IsInsidePolygon +
                 " dist=" + Number(candidate.DistanceToPolygon) +
                 " depth=" + Number(candidate.AverageDepth) +

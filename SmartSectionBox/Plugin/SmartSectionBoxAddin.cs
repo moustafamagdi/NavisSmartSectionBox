@@ -21,14 +21,10 @@ namespace SmartSectionBox.Plugin
                 }
 
                 ShowDockPane();
-                string facePullMessage;
-                if (!SmartSectionBoxRuntime.TryActivateFacePull(out facePullMessage))
+                string startupMessage;
+                if (!SmartSectionBoxRuntime.TryStartFromExistingBoxOrSelection(out startupMessage))
                 {
-                    throw new InvalidOperationException(facePullMessage);
-                }
-                if (!SmartSectionBoxRuntime.Service.EnableSectioning(true))
-                {
-                    Logger.Warn("Smart Section Box was activated, but clipping could not be enabled from the current native payload.");
+                    throw new InvalidOperationException(startupMessage);
                 }
                 return 0;
             }
