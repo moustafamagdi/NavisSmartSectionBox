@@ -54,6 +54,7 @@
     <Compile Include="Core\SectionBoxJsonAdapter.cs" />
     <Compile Include="Core\SectionBoxService.cs" />
     <Compile Include="Interaction\CameraProjection.cs" />
+    <Compile Include="Interaction\CameraRayBuilder.cs" />
     <Compile Include="Interaction\FaceHitTester.cs" />
     <Compile Include="Interaction\DragController.cs" />
     <Compile Include="Interaction\CursorManager.cs" />

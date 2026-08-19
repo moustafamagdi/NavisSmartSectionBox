@@ -1,6 +1,6 @@
 # Smart Section Box for Navisworks 2024
 
-**Smart Section Box** is a C# add-in for Autodesk Navisworks Manage or Simulate 2024. It makes **direct viewport face dragging** the primary section-box workflow: hover a projected face, press the left mouse button, drag that face, and release to commit the exact final clipping boundary. The dock pane is a compact companion for precision entry, fitting, presets, and status feedback.
+**Smart Section Box** is a C# add-in for Autodesk Navisworks Manage or Simulate 2024. It makes **direct viewport face dragging** the primary section-box workflow: grab a native section-box face in the 3D view, drag it, and release to commit the exact final clipping boundary. The compact dock pane contains only activation, status, and opt-in diagnostics; all box editing occurs in the viewport.
 
 > The add-in targets **Navisworks 2024** and **.NET Framework 4.8**. Autodesk states that the Navisworks 2024 SDK is built against .NET Framework 4.8 and should be compiled with Visual Studio 2022. [1]
 
@@ -8,14 +8,14 @@
 
 | Capability | Implementation |
 |---|---|
-| Direct manipulation | `ToolPlugin` face hover, mouse capture, drag transaction, escape cancellation, final mouse-up commit, Shift/coarse and Ctrl/fine multipliers. |
-| Face targeting | All six faces are built from eight rotated-box corners, projected through Navisworks `View.ProjectPoint`, polygon-tested over the full projected face, then selected deterministically by distance and depth. |
+| Direct manipulation | `ToolPlugin` hover, mouse capture, absolute drag transaction, Escape cancellation, final mouse-up commit, and Shift coarse multiplier. Ctrl is reserved for underlay picking. |
+| Face targeting | A calibrated camera ray intersects the six oriented-box planes in world space. Hits are bounded in face-local UV coordinates, filtered by ray-facing direction, and ordered by true ray distance `t`. |
 | Clipping | The public 2024 `View.GetClippingPlanes`, `TrySetClippingPlanes`, and `SetClippingPlanes` JSON contract is used. Native JSON is preserved as a template, avoiding a hard dependency on an undocumented DTO. |
-| Camera behavior | World-to-screen uses Navisworks projection. Perspective drag scale uses the face-camera distance; orthographic scale uses visible view height. |
+| Camera behavior | `Viewpoint.Position`, quaternion `Rotation`, focal-plane extents, and projection type construct perspective and orthographic rays. `View.ProjectPoint` verifies each camera state before ray picking is enabled. |
 | Box safety | Only the selected local face coordinate changes. Minimum thickness clamps prevent min/max inversion. |
 | Rotation | Corner creation, face normals, hit testing, and drag deltas use the same X-Y-Z Euler transform. Drag deltas are inverse-rotated into box-local coordinates before a face coordinate changes. |
-| Dock pane | Official `DockPanePlugin` plus `ElementHost` WPF hosting; bidirectional synchronization with the same `SectionBoxService` used by the tool. |
-| Presets | Document-scoped JSON presets under `%AppData%\NavisworksSmartSectionBox\Presets\<document-hash>`. |
+| Dock pane | Official `DockPanePlugin` plus `ElementHost` WPF hosting; only activation, status, and opt-in diagnostics are exposed. |
+| Coordinate fields, sliders, and presets | Deliberately omitted from the user interface; native viewport face dragging is the sole editing workflow. |
 | Diagnostics | Rolling log files under `%AppData%\NavisworksSmartSectionBox\Logs`. |
 
 ## API Verification
@@ -30,7 +30,7 @@ The implementation is grounded in the **official Navisworks 2024 SDK**, which wa
 | Projection | `ProjectionResult View.ProjectPoint(Point3D point, bool sectionClip, bool frustumClip)` | `CameraProjection.WorldToScreen()` |
 | Viewport dimensions | `View.Width`, `View.Height` | Camera scaling |
 | Mouse down | `bool ToolPlugin.MouseDown(View, KeyModifiers, ushort, int, int, double)` | Face capture |
-| Mouse move | `bool ToolPlugin.MouseMove(View, KeyModifiers, ushort, int, int, double)` | Hover and drag |
+| Mouse move | `bool ToolPlugin.MouseMove(View, KeyModifiers, int, int, double)` | Hover |
 | Mouse up | `bool ToolPlugin.MouseUp(View, KeyModifiers, ushort, int, int, double)` | Exact final apply |
 | Escape | `bool ToolPlugin.KeyDown(View, KeyModifiers, ushort, double)` | Transaction cancellation |
 | Cursor | `Cursor ToolPlugin.GetCursor(View, KeyModifiers)` | `CursorManager` |
@@ -87,7 +87,7 @@ The dock pane is intentionally a minimal launcher. All section-box editing happe
 1. Either select one or more model elements, **or** create a standard Box section through Navisworks first.
 2. Run **Smart Section Box** and click **Activate Smart Section Box**. When a native box exists, the tool adopts it unchanged. When no native box exists, the tool fits a new box to the current element selection. If neither condition is met, it gives an instruction and does not create a model-wide box.
 3. Navisworks remains the internal clipping engine. To preserve viewport performance on large federated models, Smart Section Box does **not** draw a custom box overlay.
-4. Direct interaction still uses the current section-box geometry internally. When faces overlap from the current camera angle, hold **Ctrl** while pressing and dragging to choose from the invisible back/underlay face set.
+4. Direct interaction uses the current section-box geometry internally. Normal input selects the nearest valid camera-facing face. Hold **Ctrl** while pressing and dragging to select the back/underlay set; repeat a Ctrl click at nearly the same location within roughly two seconds to cycle deterministically through overlapping underlay faces.
 5. Hold **Shift** for the configurable coarse multiplier (default 2.0). Release to apply the final state immediately. Press **Esc** instead to restore the state at mouse-down.
 
 > The native Navisworks box is deliberately not placed into Move mode after activation, and no custom wireframe is rendered. This performance-focused mode updates clipping without additional viewport drawing.
@@ -96,21 +96,21 @@ When the pointer is not over a face and no face drag is active, mouse callbacks 
 
 ## Face-Pull Diagnostics and Calibration
 
-The **Record face-pull diagnostics** checkbox is off by default. Turn it on only while investigating a face-selection issue, then use **Enable Face Pull in 3D View**, perform one or more click-and-drag attempts, and turn it off again. The trace is written to:
+The **Record face-pull diagnostics** checkbox is off by default. Turn it on only while investigating a face-selection issue, activate **Smart Section Box**, perform one or more click-and-drag attempts, and turn it off again. The trace is written to:
 
 ```text
 %AppData%\NavisworksSmartSectionBox\Logs\smart-section-box-YYYY-MM-DD.log
 ```
 
-Each `FACE_DIAGNOSTIC` entry records the screen click point, the complete projected candidate-face list, whether the pointer was inside a candidate or merely close to an edge, edge distance, projection depth, projected face polygons, the selected face, and the start/final coordinate after the drag. It intentionally excludes model properties and item-selection data.
+Each `FACE_DIAGNOSTIC` entry records the screen click point, picker mode, calibration result, selected candidate index, true ray distance, face-local UV hit coordinates, world tolerance, facing classification, and the start/final coordinate after the drag. Fallback entries additionally include the legacy projected polygon data. The trace intentionally excludes model properties and item-selection data.
 
 A typical sequence has `POINTER_DOWN`, `DRAG_BEGIN`, and `DRAG_END` entries. Send only those `FACE_DIAGNOSTIC` lines, together with a screenshot of the view, to calibrate hit selection for the camera angle and box geometry that produced the unexpected result.
 
 ## Projection and Drag Mathematics
 
-The tool does not map mouse X to model X or mouse Y to model Y. `View.ProjectPoint` supplies face-corner screen coordinates in the active perspective or orthographic view. The hit tester uses a point-in-polygon test, tolerates near edges, and sorts overlapping candidates deterministically by edge distance, projected depth, and face identity.
+The tool does not map mouse X to model X or mouse Y to model Y. It reconstructs a world ray from the active `Viewpoint` camera position, quaternion rotation, focal distance, focal-plane extents, and projection mode. Candidate rays are self-checked through `View.ProjectPoint`; the ray picker is used only if the projected round trip is within 1.5 pixels. The hit tester intersects that ray with each oriented-box face plane, checks the world hit in face-local UV coordinates, converts the desired pixel tolerance into world units at the actual hit distance, and sorts valid candidates by true ray distance `t`. If host calibration does not verify, the implementation explicitly falls back to the retained 2D projected-polygon picker rather than applying an unverified ray.
 
-For drag motion, the tool projects the current face normal into screen space. Mouse displacement projected onto that direction becomes a camera-scaled world distance. For a perspective camera, one pixel at the face is derived from the vertical visible extent scaled by camera-to-face distance divided by focal distance. For an orthographic camera, the visible height remains fixed. The resulting world vector is inverse-rotated back into box-local space and only the grabbed local face coordinate is modified. A direct-on face view projects the normal almost to a point; the controller handles that degenerate case with a stable screen-up fallback while preserving camera-scaled sensitivity.
+For drag motion, the tool captures the picked face and a calibrated ray at mouse-down. Subsequent rays intersect a **fixed camera-parallel reference plane** through the initial hit; their displacement from the original hit is resolved along the fixed face normal and applied absolutely from the drag-start box state. This avoids accumulated-delta drift and does not suffer from world-origin magnitude. A literal re-intersection with the face plane would always yield zero normal displacement because both points lie on the same plane, so it is intentionally not used. Near head-on faces remain a geometric singularity and use the existing stable screen-up fallback with camera-scaled sensitivity.
 
 ## Architecture
 
@@ -124,6 +124,7 @@ SmartSectionBox/
 │   └── SectionBoxService.cs          # Safe Navisworks clipping service
 ├── Interaction/
 │   ├── CameraProjection.cs
+│   ├── CameraRayBuilder.cs        # Calibrated perspective/orthographic rays
 │   ├── FaceHitTester.cs
 │   ├── DragController.cs
 │   ├── CursorManager.cs
@@ -149,7 +150,7 @@ SmartSectionBox/
 | Real viewport mouse input | **CONFIRMED** | Official 2024 `ToolPlugin` mouse callbacks are used. |
 | Drag one box face | **CONFIRMED** | Transaction state and one-face local-coordinate edits are implemented. |
 | Live clipping | **CONFIRMED** | `TrySetClippingPlanes` is throttled to 75 ms and mouse-up forces the final update. |
-| Perspective and orthographic projection | **CONFIRMED** | Uses `View.ProjectPoint` and `ViewpointProjection`. |
+| Perspective and orthographic projection | **CONFIRMED** | Calibrated ray construction is verified by `View.ProjectPoint`; an explicit 2D fallback is used when that verification fails. |
 | Rotated geometry / interaction architecture | **CONFIRMED** | X-Y-Z rotations affect corners, normals, hit tests, and local drag deltas. Native rotation writes require the live payload to expose the expected rotation array. |
 | WPF dock pane | **CONFIRMED** | Uses Autodesk’s supported `DockPanePlugin`/`ElementHost` pattern. |
 | Custom 3D overlay | **POSSIBLE WITH WORKAROUND** | `OverlayRender` is officially available, but a highlighted polygon is deliberately not drawn until it can be validated against the installed host. Cursor plus live dock-pane status provide supported feedback without HWND hacks. |
@@ -164,11 +165,11 @@ Validate the compiled plug-in in an installed Navisworks 2024 host before produc
 
 | Area | Required test |
 |---|---|
-| Basic box operations | Fit to Model; Fit to Selection; Min/Max X, Y, and Z direct drags; Reset. |
-| Camera | Perspective, Orthographic, front, side, top, arbitrary orbit, close and distant camera. |
-| Geometry | Small, large, asymmetric, and rotated section boxes. |
+| Basic box operations | Adopt a native Box section; Fit to Selection; direct drags of Min/Max X, Y, and Z; Escape cancellation. Verify that no model-wide box is created without a selection. |
+| Camera | Perspective and orthographic views; front, side, top, arbitrary orbit; close and distant camera. Confirm the diagnostics show `picker=ray` and `calibration=valid`. |
+| Geometry | Small, large, asymmetric, and arbitrarily rotated section boxes; faces partly outside the viewport; a face with a corner behind the camera. |
 | Models | Single NWD, federated NWD, large coordinate offset, and selection across models. |
-| Interaction | Hover, face mouse-down, live drag, mouse-up final exactness, Escape cancel, Shift, Ctrl, and navigation away from faces. |
+| Interaction | Hover, face mouse-down, live drag, mouse-up final exactness, Escape cancel, Shift, Ctrl underlay, repeated Ctrl click cycling, and navigation away from faces. |
 | JSON compatibility | Create a native Box in the target Navisworks build, Refresh, drag every face, inspect `%AppData%\NavisworksSmartSectionBox\Logs` for rejection messages, and retain an anonymized `GetClippingPlanes()` sample for regression tests. |
 
 ## Troubleshooting
@@ -183,8 +184,9 @@ Validate the compiled plug-in in an installed Navisworks 2024 host before produc
 | UI and viewport differ | Reactivate the tool to adopt the current native box, then inspect the diagnostics log if clipping does not match the current section-box state. |
 | The pane is clipped or controls overlap | Deploy the current DLL, delete the prior `SmartSectionBox.bundle`, then recreate the bundle from `Deployment/SmartSectionBox.bundle`. The revised pane has no sliders and uses a responsive host. |
 | Activation reports no target | Select at least one model element, or create a native Navisworks Box section, then activate the tool again. |
-| The wrong face is selected | Normal drags use the nearest camera-facing face; hold **Ctrl** for the invisible underlay set. Enable **Record face-pull diagnostics** and share the `FACE_DIAGNOSTIC` lines plus a viewport screenshot if selection is still unexpected. |
-| A face pulls in the opposite direction | Install the current update, which derives screen direction from local face dimensions rather than distance from world origin. Capture diagnostics if a direction inversion persists. |
+| The wrong face is selected | Normal drags use the nearest valid camera-facing ray hit. Hold **Ctrl** for the underlay set, then Ctrl-click again at nearly the same point to cycle overlapping candidates. Enable diagnostics and confirm `picker=ray` with `calibration=valid`; share those `FACE_DIAGNOSTIC` lines and a viewport screenshot if selection is still unexpected. |
+| Diagnostics show `picker=fallback-2d` | The current camera state did not round-trip through `View.ProjectPoint` within the safety threshold. Share the `FACE_DIAGNOSTIC` lines and viewport screenshot; do not tune selection tolerance blindly. |
+| A face pulls in the opposite direction | Capture diagnostics and record the `driver` value. Oblique ray drags use a fixed camera-reference plane; direct-on faces use the documented screen-up fallback. |
 
 ## References
 

@@ -9,11 +9,19 @@ namespace SmartSectionBox.Interaction
     public sealed class FaceHitResult
     {
         public SectionBoxFace Face { get; set; }
+        // Populated only by the calibration-failure fallback. Kept for current diagnostics and
+        // backwards-compatible callers.
         public ScreenPoint[] Polygon { get; set; }
         public double AverageDepth { get; set; }
         public double DistanceToPolygon { get; set; }
         public bool IsInsidePolygon { get; set; }
         public bool IsFrontFacing { get; set; }
+        public double RayDistance { get; set; }
+        public Vector3 HitPoint { get; set; }
+        public double FaceU { get; set; }
+        public double FaceV { get; set; }
+        public double WorldTolerance { get; set; }
+        public string PickerMode { get; set; }
     }
 
     public sealed class FaceHitProbe
@@ -22,15 +30,39 @@ namespace SmartSectionBox.Interaction
         public FaceHitResult Selected { get; set; }
         public int SelectedIndex { get; set; } = -1;
         public bool IsUnderlaySelection { get; set; }
+        public bool UsedRayPicker { get; set; }
+        public CameraRayCalibration Calibration { get; set; }
     }
 
+    /// <summary>
+    /// Selects section-box faces with a calibrated world ray. The ray branch never projects box
+    /// corners, so face corners behind the camera or outside the frustum cannot corrupt picking.
+    /// The retained projected-polygon implementation is invoked only when host camera calibration
+    /// deliberately refuses to validate the ray model.
+    /// </summary>
     public sealed class FaceHitTester
     {
+        private const double MinimumRayDenominator = 1e-9;
+        private const int UnderlayCyclePixelWindow = 12;
+        private static readonly TimeSpan UnderlayCycleWindow = TimeSpan.FromMilliseconds(1800);
+
         private readonly CameraProjection projection;
+        private readonly CameraRayBuilder rayBuilder;
+        private int lastUnderlayX;
+        private int lastUnderlayY;
+        private DateTime lastUnderlaySelectionAtUtc;
+        private string lastUnderlaySignature;
+        private int lastUnderlayIndex;
 
         public FaceHitTester(CameraProjection projection)
+            : this(projection, new CameraRayBuilder())
+        {
+        }
+
+        internal FaceHitTester(CameraProjection projection, CameraRayBuilder rayBuilder)
         {
             this.projection = projection ?? throw new ArgumentNullException(nameof(projection));
+            this.rayBuilder = rayBuilder ?? throw new ArgumentNullException(nameof(rayBuilder));
         }
 
         public FaceHitResult HitTest(SectionBoxState state, View view, int mouseX, int mouseY, double edgeTolerancePixels = 10.0)
@@ -41,23 +73,148 @@ namespace SmartSectionBox.Interaction
         public FaceHitResult SelectCandidate(FaceHitProbe probe, int mouseX, int mouseY)
         {
             if (probe == null || probe.Candidates == null || probe.Candidates.Count == 0) return null;
-            // Probe already contains either the three camera-facing faces or the three
-            // Ctrl-underlay faces. Select the nearest candidate in that explicit set.
-            probe.SelectedIndex = 0;
-            probe.Selected = probe.Candidates[0];
+            if (!probe.IsUnderlaySelection || probe.Candidates.Count == 1)
+            {
+                ResetUnderlayCycle();
+                probe.SelectedIndex = 0;
+                probe.Selected = probe.Candidates[0];
+                return probe.Selected;
+            }
+
+            var now = DateTime.UtcNow;
+            var signature = string.Join(",", probe.Candidates.Select(candidate => candidate.Face.Id.ToString()));
+            var isRepeat = signature == lastUnderlaySignature &&
+                           Math.Abs(mouseX - lastUnderlayX) <= UnderlayCyclePixelWindow &&
+                           Math.Abs(mouseY - lastUnderlayY) <= UnderlayCyclePixelWindow &&
+                           now - lastUnderlaySelectionAtUtc <= UnderlayCycleWindow;
+            lastUnderlayIndex = isRepeat ? (lastUnderlayIndex + 1) % probe.Candidates.Count : 0;
+            lastUnderlayX = mouseX;
+            lastUnderlayY = mouseY;
+            lastUnderlaySelectionAtUtc = now;
+            lastUnderlaySignature = signature;
+            probe.SelectedIndex = lastUnderlayIndex;
+            probe.Selected = probe.Candidates[lastUnderlayIndex];
             return probe.Selected;
         }
 
         public FaceHitProbe Probe(SectionBoxState state, View view, int mouseX, int mouseY, double edgeTolerancePixels = 10.0, bool selectUnderlay = false)
         {
-            var probe = new FaceHitProbe { Candidates = new List<FaceHitResult>(), IsUnderlaySelection = selectUnderlay };
-            if (state == null || !state.Enabled || view == null) return probe;
+            var empty = new FaceHitProbe
+            {
+                Candidates = new List<FaceHitResult>(),
+                IsUnderlaySelection = selectUnderlay,
+                UsedRayPicker = false,
+                Calibration = CameraRayCalibration.Invalid("not-attempted")
+            };
+            if (state == null || !state.Enabled || view == null) return empty;
 
-            var viewpoint = view.CreateViewpointCopy();
-            if (viewpoint == null) return probe;
-            var cameraPosition = new Vector3(viewpoint.Position.X, viewpoint.Position.Y, viewpoint.Position.Z);
+            CameraRay ray;
+            CameraRayCalibration calibration;
+            if (rayBuilder.TryCreateRay(view, mouseX, mouseY, out ray, out calibration))
+            {
+                return ProbeRay(state, ray, edgeTolerancePixels, selectUnderlay, calibration);
+            }
 
+            // The fallback is intentionally not a secondary picker that competes with a working
+            // ray. It is an explicit safe mode when the current Navisworks host/viewpoint does
+            // not round-trip the documented camera fields through ProjectPoint.
+            var fallback = ProbeProjectedPolygon(state, view, mouseX, mouseY, edgeTolerancePixels, selectUnderlay);
+            fallback.Calibration = calibration;
+            return fallback;
+        }
+
+        private static FaceHitProbe ProbeRay(
+            SectionBoxState state,
+            CameraRay ray,
+            double edgeTolerancePixels,
+            bool selectUnderlay,
+            CameraRayCalibration calibration)
+        {
             var candidates = new List<FaceHitResult>();
+            foreach (var face in SectionBoxMath.GetFaces(state))
+            {
+                var normal = face.Normal.Normalized();
+                var denominator = Vector3.Dot(ray.Direction, normal);
+                if (Math.Abs(denominator) < MinimumRayDenominator) continue;
+
+                // A ray entering an outward-facing box plane is front-facing. A positive
+                // denominator is the far/underlay plane reached after passing through the box.
+                var isFrontFacing = denominator < 0;
+                if (selectUnderlay ? isFrontFacing : !isFrontFacing) continue;
+
+                Vector3 hitPoint;
+                double rayDistance;
+                if (!ray.TryIntersectPlane(face.Center, normal, out hitPoint, out rayDistance)) continue;
+
+                Vector3 uAxis;
+                Vector3 vAxis;
+                double halfU;
+                double halfV;
+                if (!TryGetFaceUv(face, out uAxis, out vAxis, out halfU, out halfV)) continue;
+
+                // A pixel tolerance is scaled at this candidate's actual ray distance. This is
+                // the world-space equivalent of the old fixed 10 px band without allowing it to
+                // dominate a small, near, or edge-on face.
+                var unitsPerPixel = ray.WorldUnitsPerPixelAt(rayDistance);
+                if (unitsPerPixel <= 0 || double.IsNaN(unitsPerPixel) || double.IsInfinity(unitsPerPixel)) continue;
+                var tolerance = Math.Max(0, edgeTolerancePixels) * unitsPerPixel;
+                var local = hitPoint - face.Center;
+                var u = Vector3.Dot(local, uAxis);
+                var v = Vector3.Dot(local, vAxis);
+                var outsideU = Math.Max(0, Math.Abs(u) - halfU);
+                var outsideV = Math.Max(0, Math.Abs(v) - halfV);
+                var edgeDistanceWorld = Math.Sqrt(outsideU * outsideU + outsideV * outsideV);
+                var isInside = edgeDistanceWorld <= tolerance;
+                if (!isInside) continue;
+
+                candidates.Add(new FaceHitResult
+                {
+                    Face = face,
+                    AverageDepth = rayDistance,
+                    DistanceToPolygon = edgeDistanceWorld / unitsPerPixel,
+                    IsInsidePolygon = outsideU <= 1e-9 && outsideV <= 1e-9,
+                    IsFrontFacing = isFrontFacing,
+                    RayDistance = rayDistance,
+                    HitPoint = hitPoint,
+                    FaceU = u,
+                    FaceV = v,
+                    WorldTolerance = tolerance,
+                    PickerMode = "ray"
+                });
+            }
+
+            var ordered = candidates
+                .OrderBy(candidate => candidate.IsInsidePolygon ? 0 : 1)
+                .ThenBy(candidate => candidate.RayDistance)
+                .ThenBy(candidate => candidate.DistanceToPolygon)
+                .ThenBy(candidate => candidate.Face.Id)
+                .ToList();
+            return new FaceHitProbe
+            {
+                Candidates = ordered,
+                Selected = ordered.FirstOrDefault(),
+                SelectedIndex = ordered.Count == 0 ? -1 : 0,
+                IsUnderlaySelection = selectUnderlay,
+                UsedRayPicker = true,
+                Calibration = calibration
+            };
+        }
+
+        private FaceHitProbe ProbeProjectedPolygon(SectionBoxState state, View view, int mouseX, int mouseY, double edgeTolerancePixels, bool selectUnderlay)
+        {
+            var candidates = new List<FaceHitResult>();
+            var viewpoint = view.CreateViewpointCopy();
+            if (viewpoint == null || viewpoint.Position == null)
+            {
+                return new FaceHitProbe
+                {
+                    Candidates = candidates,
+                    IsUnderlaySelection = selectUnderlay,
+                    UsedRayPicker = false
+                };
+            }
+
+            var cameraPosition = new Vector3(viewpoint.Position.X, viewpoint.Position.Y, viewpoint.Position.Z);
             foreach (var face in SectionBoxMath.GetFaces(state))
             {
                 var isFrontFacing = Vector3.Dot(face.Normal, cameraPosition - face.Center) >= 0;
@@ -65,7 +222,6 @@ namespace SmartSectionBox.Interaction
 
                 var polygon = ProjectFace(face, view);
                 if (polygon == null) continue;
-
                 var point = new ScreenPoint(mouseX, mouseY, 0);
                 var inside = PointInPolygon(point, polygon);
                 var distance = inside ? 0 : DistanceToPolygon(point, polygon);
@@ -78,18 +234,43 @@ namespace SmartSectionBox.Interaction
                     AverageDepth = polygon.Average(p => p.Depth),
                     DistanceToPolygon = distance,
                     IsInsidePolygon = inside,
-                    IsFrontFacing = isFrontFacing
+                    IsFrontFacing = isFrontFacing,
+                    PickerMode = "fallback-2d"
                 });
             }
 
-            probe.Candidates = candidates
-                .OrderBy(c => c.DistanceToPolygon)
-                .ThenBy(c => c.AverageDepth)
-                .ThenBy(c => c.Face.Id)
+            var ordered = candidates
+                .OrderBy(candidate => candidate.DistanceToPolygon)
+                .ThenBy(candidate => candidate.AverageDepth)
+                .ThenBy(candidate => candidate.Face.Id)
                 .ToList();
-            probe.Selected = probe.Candidates.FirstOrDefault();
-            probe.SelectedIndex = probe.Selected == null ? -1 : 0;
-            return probe;
+            return new FaceHitProbe
+            {
+                Candidates = ordered,
+                Selected = ordered.FirstOrDefault(),
+                SelectedIndex = ordered.Count == 0 ? -1 : 0,
+                IsUnderlaySelection = selectUnderlay,
+                UsedRayPicker = false
+            };
+        }
+
+        private static bool TryGetFaceUv(SectionBoxFace face, out Vector3 uAxis, out Vector3 vAxis, out double halfU, out double halfV)
+        {
+            uAxis = new Vector3(0, 0, 0);
+            vAxis = new Vector3(0, 0, 0);
+            halfU = 0;
+            halfV = 0;
+            if (face == null || face.Corners == null || face.Corners.Length < 4) return false;
+            var uEdge = face.Corners[1] - face.Corners[0];
+            var vEdge = face.Corners[3] - face.Corners[0];
+            var uLength = uEdge.Length;
+            var vLength = vEdge.Length;
+            if (uLength < 1e-10 || vLength < 1e-10) return false;
+            uAxis = uEdge / uLength;
+            vAxis = vEdge / vLength;
+            halfU = uLength * 0.5;
+            halfV = vLength * 0.5;
+            return true;
         }
 
         private ScreenPoint[] ProjectFace(SectionBoxFace face, View view)
@@ -102,6 +283,13 @@ namespace SmartSectionBox.Interaction
                 projected[i] = point.Value;
             }
             return projected;
+        }
+
+        private void ResetUnderlayCycle()
+        {
+            lastUnderlaySignature = null;
+            lastUnderlayIndex = 0;
+            lastUnderlaySelectionAtUtc = DateTime.MinValue;
         }
 
         private static bool PointInPolygon(ScreenPoint point, IReadOnlyList<ScreenPoint> polygon)

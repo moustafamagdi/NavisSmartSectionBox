@@ -24,18 +24,22 @@ namespace SmartSectionBox.Interaction
             builder.Append(" selected=").Append(FaceName(probe == null ? null : probe.Selected));
             builder.Append(" selectedIndex=").Append(probe == null ? -1 : probe.SelectedIndex);
             builder.Append(" selectionSet=").Append(probe != null && probe.IsUnderlaySelection ? "underlay" : "front");
+            builder.Append(" picker=").Append(probe != null && probe.UsedRayPicker ? "ray" : "fallback-2d");
+            builder.Append(" calibration=").Append(Calibration(probe == null ? null : probe.Calibration));
             builder.Append(" candidateCount=").Append(probe == null || probe.Candidates == null ? 0 : probe.Candidates.Count);
             builder.Append(" box=").Append(Box(state));
             builder.Append(" candidates=").Append(Candidates(probe));
             Logger.Info(builder.ToString());
         }
 
-        public static void LogDragBegin(int x, int y, FaceHitResult selected, ScreenPoint normal, double coordinate)
+        public static void LogDragBegin(int x, int y, FaceHitResult selected, ScreenPoint normal, double coordinate, bool usesRayDrag, CameraRayCalibration calibration)
         {
             if (!Enabled) return;
             Logger.Info("FACE_DIAGNOSTIC DRAG_BEGIN screen=" + Point(x, y) +
                         " face=" + FaceName(selected) +
                         " coordinate=" + Number(coordinate) +
+                        " driver=" + (usesRayDrag ? "fixed-camera-reference-plane" : "projected-normal-fallback") +
+                        " calibration=" + Calibration(calibration) +
                         " screenNormal=" + Point(normal.X, normal.Y));
         }
 
@@ -61,11 +65,26 @@ namespace SmartSectionBox.Interaction
             if (probe == null || probe.Candidates == null || probe.Candidates.Count == 0) return "[]";
             return "[" + string.Join(" | ", probe.Candidates.Select(candidate =>
                 FaceName(candidate) +
+                " picker=" + (candidate.PickerMode ?? "unknown") +
                 " frontFacing=" + candidate.IsFrontFacing +
                 " inside=" + candidate.IsInsidePolygon +
-                " dist=" + Number(candidate.DistanceToPolygon) +
+                " screenDist=" + Number(candidate.DistanceToPolygon) +
+                " t=" + Number(candidate.RayDistance) +
+                " uv=" + Point(candidate.FaceU, candidate.FaceV) +
+                " toleranceWorld=" + Number(candidate.WorldTolerance) +
                 " depth=" + Number(candidate.AverageDepth) +
+                " hit=" + Point(candidate.HitPoint.X, candidate.HitPoint.Y, candidate.HitPoint.Z) +
                 " poly=" + Polygon(candidate.Polygon))) + "]";
+        }
+
+        private static string Calibration(CameraRayCalibration calibration)
+        {
+            if (calibration == null) return "none";
+            if (!calibration.IsValid) return "invalid:" + (calibration.FailureReason ?? "unknown");
+            return "valid;maxPx=" + Number(calibration.MaxErrorPixels) +
+                   ";meanPx=" + Number(calibration.MeanErrorPixels) +
+                   ";scale=" + Number(calibration.ExtentScale) +
+                   ";quaternion=" + (calibration.QuaternionConvention ?? "unknown");
         }
 
         private static string FaceName(FaceHitResult result)

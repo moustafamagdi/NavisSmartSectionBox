@@ -13,6 +13,7 @@ namespace SmartSectionBox.Interaction
         private const ushort LeftMouseButton = 1;
         private const ushort EscapeVirtualKey = 0x1B;
         private readonly CameraProjection projection = new CameraProjection();
+        private readonly CameraRayBuilder rayBuilder = new CameraRayBuilder();
         private FaceHitTester hitTester;
         private DragController dragController;
 
@@ -21,8 +22,8 @@ namespace SmartSectionBox.Interaction
         private void EnsureController()
         {
             if (hitTester != null) return;
-            hitTester = new FaceHitTester(projection);
-            dragController = new DragController(SmartSectionBoxRuntime.Service, projection);
+            hitTester = new FaceHitTester(projection, rayBuilder);
+            dragController = new DragController(SmartSectionBoxRuntime.Service, projection, rayBuilder);
             dragController.LiveUpdates = SmartSectionBoxRuntime.LiveUpdates;
         }
 
@@ -78,7 +79,7 @@ namespace SmartSectionBox.Interaction
                 InteractionDiagnostics.LogPointerDown(x, y, probe, state, captured);
                 if (captured)
                 {
-                    InteractionDiagnostics.LogDragBegin(x, y, hit, dragController.ScreenNormal, dragController.InitialCoordinate);
+                    InteractionDiagnostics.LogDragBegin(x, y, hit, dragController.ScreenNormal, dragController.InitialCoordinate, dragController.UsesCalibratedRayDrag, dragController.DragCalibration);
                     PublishHover(dragController.Hover);
                     view.RequestDelayedRedraw(ViewRedrawRequests.Render);
                 }

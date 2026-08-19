@@ -17,6 +17,15 @@ namespace Autodesk.Navisworks.Api
         public double Z { get; set; }
     }
 
+    public class Rotation3D
+    {
+        // Navisworks documents quaternion components as A, B, C, and D.
+        public double A { get; set; }
+        public double B { get; set; }
+        public double C { get; set; }
+        public double D { get; set; } = 1.0;
+    }
+
     public class ProjectionResult
     {
         public double X { get; set; }
@@ -27,8 +36,11 @@ namespace Autodesk.Navisworks.Api
     public class Viewpoint
     {
         public double VerticalExtentAtFocalDistance { get; set; }
+        public double HorizontalExtentAtFocalDistance { get; set; }
         public double FocalDistance { get; set; }
+        public bool HasFocalDistance { get; set; } = true;
         public Point3D Position { get; set; }
+        public Rotation3D Rotation { get; set; } = new Rotation3D();
         public ViewpointProjection Projection { get; set; }
     }
 
