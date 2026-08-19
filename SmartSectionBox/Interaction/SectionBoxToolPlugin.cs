@@ -12,10 +12,16 @@ namespace SmartSectionBox.Interaction
     {
         private const ushort LeftMouseButton = 1;
         private const ushort EscapeVirtualKey = 0x1B;
+        private const int HoverCaptureTolerancePixels = 14;
         private readonly CameraProjection projection = new CameraProjection();
         private readonly CameraRayBuilder rayBuilder = new CameraRayBuilder();
         private FaceHitTester hitTester;
         private DragController dragController;
+        private FaceHitResult lastHoverHit;
+        private int lastHoverX;
+        private int lastHoverY;
+        private bool lastHoverWasUnderlay;
+        private bool ownsMouseSequence;
 
         public static event EventHandler<FaceHoverState> HoverChanged;
 
@@ -33,10 +39,12 @@ namespace SmartSectionBox.Interaction
             {
                 EnsureController();
                 dragController.LiveUpdates = SmartSectionBoxRuntime.LiveUpdates;
-                if (dragController.State == DragState.Dragging) return false;
+                if (dragController.State == DragState.Dragging) return ownsMouseSequence;
 
                 var state = SmartSectionBoxRuntime.Service.GetCurrentBox();
-                var probe = hitTester.Probe(state, view, x, y, 10.0, modifiers.HasFlag(KeyModifiers.Ctrl));
+                var selectUnderlay = modifiers.HasFlag(KeyModifiers.Ctrl);
+                var probe = hitTester.Probe(state, view, x, y, 10.0, selectUnderlay);
+                RememberHoverHit(probe.Selected, x, y, selectUnderlay);
                 dragController.UpdateHover(probe.Selected);
                 PublishHover(dragController.Hover);
                 return false;
@@ -53,16 +61,16 @@ namespace SmartSectionBox.Interaction
             try
             {
                 EnsureController();
-                if (dragController.State != DragState.Dragging) return false;
+                if (dragController.State != DragState.Dragging) return ownsMouseSequence;
                 var handled = dragController.Update(x, y, modifiers, view);
                 PublishHover(dragController.Hover);
                 view.RequestDelayedRedraw(ViewRedrawRequests.Render);
-                return handled;
+                return handled || ownsMouseSequence;
             }
             catch (Exception ex)
             {
                 Logger.Error("MouseDrag failed in Smart Section Box tool.", ex);
-                return false;
+                return ownsMouseSequence;
             }
         }
 
@@ -73,10 +81,24 @@ namespace SmartSectionBox.Interaction
                 EnsureController();
                 if (button != LeftMouseButton) return false;
                 var state = SmartSectionBoxRuntime.Service.GetCurrentBox();
-                var probe = hitTester.Probe(state, view, x, y, 10.0, modifiers.HasFlag(KeyModifiers.Ctrl));
+                var selectUnderlay = modifiers.HasFlag(KeyModifiers.Ctrl);
+                var probe = hitTester.Probe(state, view, x, y, 10.0, selectUnderlay);
                 var hit = hitTester.SelectCandidate(probe, x, y);
+                var captureSource = "fresh-probe";
+                if (hit == null && TryGetRecentHoverHit(x, y, selectUnderlay, out hit))
+                {
+                    // ProjectPoint can change transiently between MouseMove and MouseDown. The
+                    // cursor already received this exact face as pre-selection feedback, so
+                    // reuse it inside a tiny screen window rather than falling through to the
+                    // native section-box transform tool.
+                    probe.Selected = hit;
+                    probe.SelectedIndex = -1;
+                    captureSource = "hover-cache";
+                }
+
                 var captured = dragController.Begin(hit, x, y, view);
-                InteractionDiagnostics.LogPointerDown(x, y, probe, state, captured);
+                ownsMouseSequence = captured;
+                InteractionDiagnostics.LogPointerDown(x, y, probe, state, captured, captureSource);
                 if (captured)
                 {
                     InteractionDiagnostics.LogDragBegin(x, y, hit, dragController.ScreenNormal, dragController.InitialCoordinate, dragController.UsesCalibratedRayDrag, dragController.DragCalibration);
@@ -97,21 +119,32 @@ namespace SmartSectionBox.Interaction
             try
             {
                 EnsureController();
-                if (dragController.State != DragState.Dragging || button != LeftMouseButton) return false;
+                if (button != LeftMouseButton) return false;
+                if (dragController.State != DragState.Dragging)
+                {
+                    var consumed = ownsMouseSequence;
+                    ownsMouseSequence = false;
+                    return consumed;
+                }
+
                 dragController.Update(x, y, modifiers, view);
                 var face = dragController.DraggedFaceId;
                 var initialCoordinate = dragController.InitialCoordinate;
                 var finalCoordinate = dragController.WorkingCoordinate;
                 var committed = dragController.Commit();
+                var sequenceOwned = ownsMouseSequence;
+                ownsMouseSequence = false;
                 InteractionDiagnostics.LogDragEnd(dragController.MouseStartX, dragController.MouseStartY, x, y, face, initialCoordinate, finalCoordinate, committed);
                 PublishHover(FaceHoverState.None);
                 view.RequestDelayedRedraw(ViewRedrawRequests.Render);
-                return committed;
+                return committed || sequenceOwned;
             }
             catch (Exception ex)
             {
                 Logger.Error("MouseUp failed in Smart Section Box tool.", ex);
-                return false;
+                var consumed = ownsMouseSequence;
+                ownsMouseSequence = false;
+                return consumed;
             }
         }
 
@@ -124,6 +157,7 @@ namespace SmartSectionBox.Interaction
                 var face = dragController.DraggedFaceId;
                 var restoredCoordinate = dragController.InitialCoordinate;
                 var restored = dragController.Cancel();
+                ownsMouseSequence = false;
                 InteractionDiagnostics.LogDragCancel(face, restoredCoordinate);
                 PublishHover(FaceHoverState.None);
                 view.RequestDelayedRedraw(ViewRedrawRequests.Render);
@@ -141,7 +175,9 @@ namespace SmartSectionBox.Interaction
             try
             {
                 EnsureController();
-                if (dragController.State == DragState.Dragging) return false;
+                if (dragController.State == DragState.Dragging) return ownsMouseSequence;
+                ownsMouseSequence = false;
+                ClearHoverHit();
                 dragController.Reset();
                 PublishHover(FaceHoverState.None);
             }
@@ -156,6 +192,29 @@ namespace SmartSectionBox.Interaction
         {
             EnsureController();
             return CursorManager.GetCursor(dragController.Hover, dragController.State);
+        }
+
+        private void RememberHoverHit(FaceHitResult hit, int x, int y, bool selectUnderlay)
+        {
+            lastHoverHit = hit;
+            lastHoverX = x;
+            lastHoverY = y;
+            lastHoverWasUnderlay = selectUnderlay;
+        }
+
+        private bool TryGetRecentHoverHit(int x, int y, bool selectUnderlay, out FaceHitResult hit)
+        {
+            hit = null;
+            if (lastHoverHit == null || lastHoverHit.Face == null || lastHoverWasUnderlay != selectUnderlay) return false;
+            if (Math.Abs(x - lastHoverX) > HoverCaptureTolerancePixels || Math.Abs(y - lastHoverY) > HoverCaptureTolerancePixels) return false;
+            hit = lastHoverHit;
+            return true;
+        }
+
+        private void ClearHoverHit()
+        {
+            lastHoverHit = null;
+            lastHoverWasUnderlay = false;
         }
 
         private static void PublishHover(FaceHoverState hover)

@@ -15,12 +15,13 @@ namespace SmartSectionBox.Interaction
     {
         public static bool Enabled { get; set; }
 
-        public static void LogPointerDown(int x, int y, FaceHitProbe probe, SectionBoxState state, bool captured)
+        public static void LogPointerDown(int x, int y, FaceHitProbe probe, SectionBoxState state, bool captured, string captureSource)
         {
             if (!Enabled) return;
             var builder = new StringBuilder("FACE_DIAGNOSTIC POINTER_DOWN ");
             builder.Append("screen=").Append(Point(x, y));
             builder.Append(" captured=").Append(captured);
+            builder.Append(" captureSource=").Append(captureSource ?? "none");
             builder.Append(" selected=").Append(FaceName(probe == null ? null : probe.Selected));
             builder.Append(" selectedIndex=").Append(probe == null ? -1 : probe.SelectedIndex);
             builder.Append(" selectionSet=").Append(probe != null && probe.IsUnderlaySelection ? "underlay" : "front");

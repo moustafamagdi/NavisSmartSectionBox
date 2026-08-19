@@ -207,8 +207,7 @@ namespace SmartSectionBox.Interaction
 
             var multiplier = modifiers.HasFlag(KeyModifiers.Shift) ? ShiftMultiplier : 1.0;
             var signedWorldOffset = Vector3.Dot(currentPoint - dragStartPoint, draggedFace.Normal.Normalized()) * multiplier;
-            var localMovement = SectionBoxMath.InverseRotateLocal(draggedFace.Normal.Normalized() * signedWorldOffset, initialState);
-            coordinateDelta = AxisComponent(localMovement, draggedFace.Axis);
+            coordinateDelta = FaceCoordinateDeltaFromNormalOffset(draggedFace, signedWorldOffset);
             dragCalibration = calibration;
             return true;
         }
@@ -232,19 +231,18 @@ namespace SmartSectionBox.Interaction
 
             var multiplier = modifiers.HasFlag(KeyModifiers.Shift) ? ShiftMultiplier : 1.0;
             var worldDistance = projection.ScreenPixelsToWorldDistance(signedPixels * multiplier, draggedFace.Center, view);
-            var localMovement = SectionBoxMath.InverseRotateLocal(draggedFace.Normal.Normalized() * worldDistance, initialState);
-            return AxisComponent(localMovement, draggedFace.Axis);
+            return FaceCoordinateDeltaFromNormalOffset(draggedFace, worldDistance);
         }
 
-        private static double AxisComponent(Vector3 vector, SectionBoxAxis axis)
+        internal static double FaceCoordinateDeltaFromNormalOffset(SectionBoxFace face, double signedWorldOffset)
         {
-            switch (axis)
-            {
-                case SectionBoxAxis.X: return vector.X;
-                case SectionBoxAxis.Y: return vector.Y;
-                case SectionBoxAxis.Z: return vector.Z;
-                default: throw new ArgumentOutOfRangeException(nameof(axis));
-            }
+            // Face normals are already created from the same rotated local axis as the box
+            // geometry. Once movement has been resolved along that normal, applying another
+            // inverse Euler rotation is redundant and can couple an X/Y pull to another local
+            // component for a rotated native box. The face side alone defines the coordinate
+            // sign: outward positive-side motion increases Max; outward negative-side motion
+            // decreases Min. SetFaceCoordinate then mutates only that captured boundary.
+            return face != null && face.PositiveSide ? signedWorldOffset : -signedWorldOffset;
         }
     }
 }
