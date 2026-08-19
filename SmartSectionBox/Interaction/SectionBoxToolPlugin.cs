@@ -13,7 +13,6 @@ namespace SmartSectionBox.Interaction
         private const ushort LeftMouseButton = 1;
         private const ushort EscapeVirtualKey = 0x1B;
         private readonly CameraProjection projection = new CameraProjection();
-        private readonly SectionBoxOverlayRenderer overlayRenderer = new SectionBoxOverlayRenderer();
         private FaceHitTester hitTester;
         private DragController dragController;
 
@@ -156,19 +155,6 @@ namespace SmartSectionBox.Interaction
         {
             EnsureController();
             return CursorManager.GetCursor(dragController.Hover, dragController.State);
-        }
-
-        public override void Render(View view, Graphics graphics)
-        {
-            try
-            {
-                EnsureController();
-                overlayRenderer.Render(view, graphics, SmartSectionBoxRuntime.Service.GetCurrentBox(), dragController.Hover);
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Custom Smart Section Box overlay rendering failed.", ex);
-            }
         }
 
         private static void PublishHover(FaceHoverState hover)

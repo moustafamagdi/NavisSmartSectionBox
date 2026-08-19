@@ -58,7 +58,6 @@
     <Compile Include="Interaction\DragController.cs" />
     <Compile Include="Interaction\CursorManager.cs" />
     <Compile Include="Interaction\InteractionDiagnostics.cs" />
-    <Compile Include="Interaction\SectionBoxOverlayRenderer.cs" />
     <Compile Include="Interaction\SectionBoxToolPlugin.cs" />
     <Compile Include="UI\ViewModels\DelegateCommand.cs" />
     <Compile Include="UI\ViewModels\SectionBoxViewModel.cs" />
