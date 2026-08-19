@@ -34,7 +34,7 @@ internal static class SectionBoxMathHarness
 
     private static void TestRotatedNormal()
     {
-        var state = new SectionBoxState { MinX = 0, MinY = 0, MinZ = 0, MaxX = 2, MaxY = 2, MaxZ = 2, RotationZ = Math.PI / 2.0 };
+        var state = new SectionBoxState { MinX = 0, MinY = 0, MinZ = 0, MaxX = 2, MaxY = 2, MaxZ = 2, RotationZ = 90.0 };
         var maxX = SectionBoxMath.GetFaces(state)[1];
         AssertNear(0, maxX.Normal.X, "Rotated Max X normal X");
         AssertNear(1, maxX.Normal.Y, "Rotated Max X normal Y");

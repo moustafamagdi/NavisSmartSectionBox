@@ -35,3 +35,13 @@ Autodesk’s current Navisworks publisher guidance confirms that Manage and Simu
 
 [5]: https://aps.autodesk.com/marketplace/publisher-center/navisworks-publisher-guidelines "Navisworks publisher guidelines — Autodesk Platform Services"
 [6]: https://forums.autodesk.com/t5/navisworks-api-forum/how-to-deploy-a-plug-in-for-navis-2025/td-p/13694530 "How to deploy a plug in for Navis 2025? — Autodesk Community"
+
+## Native box payload implementation correction
+
+The current sectioning reference confirms that Navisworks box mode is controlled by a `jsonClipPlaneSet` whose box location is represented directly by `Max` and `Min` points, while the top-level `Enabled` key activates sectioning. Plane mode instead uses a `Planes` array. The implementation must therefore recognize and emit direct `Min`/`Max` box members rather than relying on the unverified fallback `OrientedBox`/`Box` envelope. The actual host payload should still be captured through `GetClippingPlanes()` when possible and retained as the template.
+
+[7]: https://www.linkedin.com/pulse/navisworks-api-sectioning-control-net-gavin-yang-li-fvyxc "Navisworks API Sectioning Control with .NET"
+
+## Exact box JSON schema observed
+
+The full-resolution box-mode illustration shows the concrete payload shape used by Navisworks: root `{ "Type": "ClipPlaneSet", "Version": 1, "OrientedBox": { "Type": "OrientedBox3D", "Version": 1, "Box": [[minX,minY,minZ],[maxX,maxY,maxZ]], "Rotation": [x,y,z] }, "Enable": true }`. The root activation property is **`Enable`** (not `Enabled`), and both the root and `OrientedBox` include `Type` and `Version`. The fallback encoder must emit this schema exactly.

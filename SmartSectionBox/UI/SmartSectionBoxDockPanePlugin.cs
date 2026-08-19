@@ -5,7 +5,7 @@ using Autodesk.Navisworks.Api.Plugins;
 namespace SmartSectionBox.UI
 {
     [Plugin("SmartSectionBox.DockPane", "MSSB", DisplayName = "Smart Section Box")]
-    [DockPanePlugin(280, 620, FixedSize = false)]
+    [DockPanePlugin(340, 640, FixedSize = false)]
     public sealed class SmartSectionBoxDockPanePlugin : DockPanePlugin
     {
         public override Control CreateControlPane()
@@ -13,7 +13,8 @@ namespace SmartSectionBox.UI
             var host = new ElementHost
             {
                 Dock = DockStyle.Fill,
-                AutoSize = true,
+                AutoSize = false,
+                MinimumSize = new System.Drawing.Size(0, 0),
                 Child = new SectionBoxDockPane()
             };
             host.CreateControl();

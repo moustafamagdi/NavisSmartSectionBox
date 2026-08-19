@@ -78,17 +78,19 @@ Install **Navisworks Manage 2024** or **Navisworks Simulate 2024** and Visual St
 
 Use the checked-in [`Deployment/SmartSectionBox.bundle`](Deployment/SmartSectionBox.bundle) template rather than copying a DLL to a legacy product `Plugins` folder. Copy the Release DLL into `Contents\2024`, retain `PackageContents.xml` at the bundle root, then fully restart Navisworks. See [`Deployment/README.md`](Deployment/README.md) for the exact folder tree and diagnostics. Once the bundle is discovered, locate **Smart Section Box** in the Navisworks plug-in/ribbon command list. The command opens the dock pane, registers the custom tool, enables clipping, and tries to create a box around the active model when no native box payload is available.
 
-The first click on **Fit to Model** is the recommended initialization path. If Navisworks rejects the first fallback JSON payload, create a native box once through the Navisworks sectioning UI, click **Refresh**, and retry. The add-in then uses the exact payload returned by that installation and document.
+The first click on **Fit to Model** is the recommended initialization path. The add-in emits the verified `ClipPlaneSet`/`OrientedBox3D` box schema for first-time creation and then preserves the exact native payload returned by Navisworks. If the host still rejects a write, click **Read Native Box** and inspect the add-in log before retrying.
 
 ## Direct Face Dragging Workflow
 
-1. Run **Smart Section Box** and use **Fit to Model** or **Fit to Selection**.
-2. Move the pointer over a section-box face in the active 3D viewport.
-3. The tool identifies the face from the projected quadrilateral, not merely its center, and returns a handled cursor.
-4. Press the left mouse button over the face. The tool takes a copy of the initial section-box state but does not mutate it at mouse-down.
-5. Drag. The active face alone moves along its transformed normal. The dock pane updates from the same authoritative state source.
-6. Hold **Shift** for the configurable coarse multiplier (default 2.0) or **Ctrl** for the configurable fine multiplier (default 0.25).
-7. Release to apply the exact final state immediately. Press **Esc** instead to restore the initial state.
+The dock pane is intentionally organized as a two-step workflow that remains readable in a narrow Navisworks panel.
+
+1. Run **Smart Section Box**. In **1. Create or Refit**, select **Fit to Model** to create an initial box around the complete model, or **Fit to Selection** to create one around selected items. This is the required first step; the exact-coordinate controls remain disabled until Navisworks accepts a box.
+2. Use **2. Edit Section Box** for exact Min/Max X, Y, and Z values. There are no sliders, so the dock pane remains usable when narrow. The **On** checkbox enables/disables the current box and **Live** controls whether a face drag updates the model continuously.
+3. Move the pointer over a visible native section-box face in the active 3D viewport. The tool tests the full projected face quadrilateral, rather than its center only.
+4. Press the left mouse button over the desired face and drag. That face alone moves along its transformed normal; the dock pane updates from the same authoritative state source.
+5. Hold **Shift** for the configurable coarse multiplier (default 2.0) or **Ctrl** for the configurable fine multiplier (default 0.25). Release to apply the exact final state immediately. Press **Esc** instead to restore the state at mouse-down.
+
+> **First-use expectation:** a box fitted to the whole model initially produces little or no visible cut because it encloses the full model. Drag one of its faces inward, or fit to a selected group, to create a visible cut.
 
 When the pointer is not over a face and no face drag is active, mouse callbacks return `false`; Navisworks navigation and normal input remain available. Autodesk’s input sample demonstrates this custom-tool pattern and calls `RequestDelayedRedraw(ViewRedrawRequests.Render)` after interaction changes.
 
@@ -163,10 +165,12 @@ Validate the compiled plug-in in an installed Navisworks 2024 host before produc
 |---|---|
 | The command does not appear | Confirm the DLL is in a Navisworks 2024 plug-in folder and that it was compiled against the matching Manage/Simulate 2024 API DLL. |
 | Build fails resolving `Autodesk.Navisworks.Api.dll` | Set `NavisworksInstallDir` to the installed product folder. |
-| First box creation fails | Use Navisworks sectioning UI to create a native Box once, run **Refresh**, then use **Fit to Model**. Check the log file. |
-| A face does not capture | Confirm clipping is enabled and that the pointer is inside or close to a projected face; test after Refresh. |
+| First box creation fails | Click **Read Native Box**, then inspect the add-in log. The add-in now emits Navisworks’ verified `ClipPlaneSet`/`OrientedBox3D` fallback schema automatically. |
+| A face does not capture | Confirm the box was created successfully, clipping is **On**, and the pointer is inside or close to a projected native box face; then use **Read Native Box** to synchronize the UI. |
 | Navigation is blocked | Verify a mouse button was released. Press **Esc** to cancel the drag transaction. |
-| UI and viewport differ | Click **Refresh**. The next native payload becomes the source template. |
+| UI and viewport differ | Click **Read Native Box**. The next native payload becomes the source template. |
+| The pane is clipped or controls overlap | Deploy the current DLL, delete the prior `SmartSectionBox.bundle`, then recreate the bundle from `Deployment/SmartSectionBox.bundle`. The revised pane has no sliders and uses a responsive host. |
+| Exact fields are disabled | Click **Fit to Model** or **Fit to Selection** first. If the status reports rejection, copy `%AppData%\\NavisworksSmartSectionBox\\Logs` for diagnosis. |
 
 ## References
 

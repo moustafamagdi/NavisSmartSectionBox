@@ -8,6 +8,7 @@ internal static class SectionBoxJsonAdapterHarness
         try
         {
             TestFallbackRoundTrip();
+            TestDirectMinMaxPayload();
             TestNativeTemplatePreservation();
             Console.WriteLine("All isolated SectionBoxJsonAdapter tests passed.");
             return 0;
@@ -32,7 +33,24 @@ internal static class SectionBoxJsonAdapterHarness
         AssertNear(0.25, decoded.RotationZ, "Fallback rotation");
     }
 
-    private static void TestNativeTemplatePreservation()
+        private static void TestDirectMinMaxPayload()
+        {
+            const string native = "{\"Type\":\"ClipPlaneSet\",\"Min\":[-10,-20,-30],\"Max\":[10,20,30],\"Enabled\":true}";
+            var adapter = new SectionBoxJsonAdapter();
+            SectionBoxState state;
+            string diagnostic;
+            Assert(adapter.TryDecode(native, out state, out diagnostic), diagnostic);
+            AssertNear(-10, state.MinX, "Direct payload MinX");
+            AssertNear(30, state.MaxZ, "Direct payload MaxZ");
+            state.MinY = -25;
+            var encoded = adapter.Encode(state);
+            Assert(encoded.Contains("\"Min\""), "Direct payload must retain Min point.");
+            Assert(adapter.TryDecode(encoded, out state, out diagnostic), diagnostic);
+            AssertNear(-25, state.MinY, "Updated direct payload MinY");
+        }
+
+        private static void TestNativeTemplatePreservation()
+
     {
         const string native = "{\"Type\":\"ClipPlaneSet\",\"Enabled\":true,\"Metadata\":\"KeepMe\",\"OrientedBox\":{\"Box\":[[10,20,30],[40,50,60]],\"Rotation\":[0,0,0]}}";
         var adapter = new SectionBoxJsonAdapter();

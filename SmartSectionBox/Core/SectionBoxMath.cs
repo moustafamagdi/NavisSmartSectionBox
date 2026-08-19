@@ -62,17 +62,18 @@ namespace SmartSectionBox.Core
 
         public static Vector3 RotateLocal(Vector3 localVector, SectionBoxState state)
         {
-            // Intrinsic X-Y-Z Euler rotation. All interaction geometry uses this same transform.
-            var x = RotateX(localVector, state.RotationX);
-            var y = RotateY(x, state.RotationY);
-            return RotateZ(y, state.RotationZ);
+            // Navisworks serializes OrientedBox3D rotations in degrees. Convert at the
+            // geometry boundary so JSON, state, face hit-testing, and drag updates agree.
+            var x = RotateX(localVector, DegreesToRadians(state.RotationX));
+            var y = RotateY(x, DegreesToRadians(state.RotationY));
+            return RotateZ(y, DegreesToRadians(state.RotationZ));
         }
 
         public static Vector3 InverseRotateLocal(Vector3 worldVector, SectionBoxState state)
         {
-            var z = RotateZ(worldVector, -state.RotationZ);
-            var y = RotateY(z, -state.RotationY);
-            return RotateX(y, -state.RotationX);
+            var z = RotateZ(worldVector, -DegreesToRadians(state.RotationZ));
+            var y = RotateY(z, -DegreesToRadians(state.RotationY));
+            return RotateX(y, -DegreesToRadians(state.RotationX));
         }
 
         public static Bounds3D Union(Bounds3D first, Bounds3D second)
@@ -116,6 +117,11 @@ namespace SmartSectionBox.Core
                 Center = centre / 4.0,
                 Normal = RotateLocal(LocalAxisNormal(axis, positiveSide), state).Normalized()
             };
+        }
+
+        private static double DegreesToRadians(double degrees)
+        {
+            return degrees * Math.PI / 180.0;
         }
 
         private static Vector3 RotateX(Vector3 p, double radians)

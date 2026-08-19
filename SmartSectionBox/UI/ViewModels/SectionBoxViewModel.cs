@@ -17,7 +17,7 @@ namespace SmartSectionBox.UI.ViewModels
         private SectionBoxState state;
         private bool isSynchronizing;
         private bool liveUpdates = true;
-        private string status = "Ready. Click Fit to Model, then drag a box face in the viewport.";
+        private string status = "Step 1: click Fit to Model or Fit to Selection to create and activate the section box.";
         private string presetName = "Default";
 
         public SectionBoxViewModel(SectionBoxService service, PresetStore presets)
@@ -72,6 +72,9 @@ namespace SmartSectionBox.UI.ViewModels
                 if (SetField(ref liveUpdates, value)) SmartSectionBoxRuntime.LiveUpdates = value;
             }
         }
+
+        public bool IsBoxReady => state != null;
+        public bool IsBoxNotReady => state == null;
 
         public bool Enabled
         {
@@ -197,6 +200,8 @@ namespace SmartSectionBox.UI.ViewModels
 
         private void RaiseAllStateProperties()
         {
+            OnPropertyChanged(nameof(IsBoxReady));
+            OnPropertyChanged(nameof(IsBoxNotReady));
             OnPropertyChanged(nameof(Enabled));
             OnPropertyChanged(nameof(MinX));
             OnPropertyChanged(nameof(MaxX));

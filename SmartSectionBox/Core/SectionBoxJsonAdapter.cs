@@ -52,7 +52,7 @@ namespace SmartSectionBox.Core
 
                 state = new SectionBoxState
                 {
-                    Enabled = ReadBoolean(root, "Enabled", true),
+                    Enabled = ReadBoolean(root, "Enabled", ReadBoolean(root, "Enable", true)),
                     MinX = min.X,
                     MinY = min.Y,
                     MinZ = min.Z,
@@ -101,18 +101,21 @@ namespace SmartSectionBox.Core
 
         private static IDictionary<string, object> CreateFallbackEnvelope(SectionBoxState state)
         {
-            // The fallback is intentionally isolated and every attempt is checked through
-            // View.TrySetClippingPlanes. A live GetClippingPlanes payload, when available,
-            // is always preferred and preserved verbatim as the template.
+            // Native Navisworks box mode uses OrientedBox3D. This exact envelope was
+            // observed from GetClippingPlanes() in Navisworks box mode; every write remains
+            // guarded by View.TrySetClippingPlanes and a native template is still preferred.
             return new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
             {
                 ["Type"] = "ClipPlaneSet",
+                ["Version"] = 1,
                 ["OrientedBox"] = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
                 {
+                    ["Type"] = "OrientedBox3D",
+                    ["Version"] = 1,
                     ["Box"] = Coordinates(state),
                     ["Rotation"] = new ArrayList { state.RotationX, state.RotationY, state.RotationZ }
                 },
-                ["Enabled"] = state.Enabled
+                ["Enable"] = state.Enabled
             };
         }
 
@@ -127,6 +130,14 @@ namespace SmartSectionBox.Core
 
         private static bool TryFindBox(IDictionary<string, object> current, out object box)
         {
+            // Native Navisworks box payloads use Min and Max points directly on the
+            // box object. The object may be the root or a nested named member.
+            if (IsRecognizedBoxValue(current))
+            {
+                box = current;
+                return true;
+            }
+
             foreach (var pair in current)
             {
                 if (string.Equals(pair.Key, "Box", StringComparison.OrdinalIgnoreCase) && IsRecognizedBoxValue(pair.Value))
@@ -277,7 +288,12 @@ namespace SmartSectionBox.Core
         private static void WriteBoolean(IDictionary<string, object> dictionary, string name, bool value)
         {
             string key;
-            if (!TryGetKey(dictionary, name, out key)) key = name;
+            if (!TryGetKey(dictionary, name, out key))
+            {
+                // Some documented examples use Enable while the current .NET payload
+                // normally uses Enabled. Preserve whichever spelling the host supplied.
+                if (!TryGetKey(dictionary, "Enable", out key)) key = name;
+            }
             dictionary[key] = value;
         }
 
