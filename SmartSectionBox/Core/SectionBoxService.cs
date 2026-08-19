@@ -90,6 +90,7 @@ namespace SmartSectionBox.Core
                 try
                 {
                     var normalized = state.Normalized(MinimumBoxThickness);
+                    var shouldPublishStatus = force || current == null || current.Enabled != normalized.Enabled;
                     var now = DateTime.UtcNow;
                     if (!force && (now - lastApplyUtc).TotalMilliseconds < LiveApplyIntervalMilliseconds)
                     {
@@ -112,7 +113,10 @@ namespace SmartSectionBox.Core
                     normalized.NativeJsonTemplate = view.GetClippingPlanes();
                     current = normalized;
                     PublishState(current);
-                    PublishStatus(normalized.Enabled ? "Smart Section Box active." : "Smart Section Box disabled.");
+                    if (shouldPublishStatus)
+                    {
+                        PublishStatus(normalized.Enabled ? "Smart Section Box active." : "Smart Section Box disabled.");
+                    }
                     return true;
                 }
                 catch (Exception ex)

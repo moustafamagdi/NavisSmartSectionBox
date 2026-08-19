@@ -53,7 +53,7 @@
                         <Button Grid.Column="1" Content="Fit to Selection" Command="{Binding FitSelectionCommand}" />
                     </Grid>
                     <Button Content="Enable Face Pull in 3D View" Style="{StaticResource PrimaryButton}" Command="{Binding ActivateFacePullCommand}" Margin="2,5,2,1" />
-                    <TextBlock Text="Use this before dragging. Native Move, Rotate, and Scale tools replace Face Pull."
+                    <TextBlock Text="Use this before dragging. Native Move, Rotate, and Scale tools replace Face Pull. Hold Ctrl while pressing and dragging to choose the next overlapping/underlay face."
                                Foreground="#52606D" FontSize="10" TextWrapping="Wrap" Margin="2,1,2,0" />
                     <CheckBox Content="Record face-pull diagnostics" IsChecked="{Binding InteractionDiagnosticsEnabled, Mode=TwoWay}"
                               ToolTip="Logs the pointer location, projected candidate faces, selected face, and drag result." Margin="2,5,2,0" />

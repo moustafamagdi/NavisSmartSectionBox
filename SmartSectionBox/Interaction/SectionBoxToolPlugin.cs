@@ -73,7 +73,7 @@ namespace SmartSectionBox.Interaction
                 if (button != LeftMouseButton) return false;
                 var state = SmartSectionBoxRuntime.Service.GetCurrentBox();
                 var probe = hitTester.Probe(state, view, x, y);
-                var hit = probe.Selected;
+                var hit = hitTester.SelectCandidate(probe, modifiers.HasFlag(KeyModifiers.Ctrl), x, y);
                 var captured = dragController.Begin(hit, x, y, view);
                 InteractionDiagnostics.LogPointerDown(x, y, probe, state, captured);
                 if (captured)

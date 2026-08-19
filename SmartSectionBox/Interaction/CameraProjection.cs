@@ -64,7 +64,13 @@ namespace SmartSectionBox.Interaction
         public ScreenPoint GetProjectedNormalDirection(SectionBoxFace face, View view)
         {
             var centre = WorldToScreen(face.Center, view);
-            var length = Math.Max(1.0, face.Corners[0].Length * 0.025);
+            // The previous calculation used the distance from the world origin, which can be
+            // millions of units in civil models. That projects past the camera and can invert
+            // the apparent pull direction. Use the local face dimensions instead.
+            var edgeA = (face.Corners[1] - face.Corners[0]).Length;
+            var edgeB = (face.Corners[2] - face.Corners[1]).Length;
+            var localScale = Math.Max(0.001, Math.Min(edgeA, edgeB));
+            var length = Math.Max(0.001, localScale * 0.15);
             var endpoint = WorldToScreen(face.Center + face.Normal * length, view);
             if (!centre.HasValue || !endpoint.HasValue) return new ScreenPoint(0, 0, 0);
             return new ScreenPoint(endpoint.Value.X - centre.Value.X, endpoint.Value.Y - centre.Value.Y, 0);

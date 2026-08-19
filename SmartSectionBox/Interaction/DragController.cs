@@ -91,8 +91,9 @@ namespace SmartSectionBox.Interaction
                 signedPixels = -dy;
             }
 
-            var multiplier = modifiers.HasFlag(KeyModifiers.Shift) ? ShiftMultiplier :
-                             modifiers.HasFlag(KeyModifiers.Ctrl) ? CtrlMultiplier : 1.0;
+            // Ctrl is reserved for choosing an overlapping underlay face at mouse-down.
+            // Once a face is captured, Shift is the only drag-sensitivity modifier.
+            var multiplier = modifiers.HasFlag(KeyModifiers.Shift) ? ShiftMultiplier : 1.0;
             var worldDistance = projection.ScreenPixelsToWorldDistance(signedPixels * multiplier, draggedFace.Center, view);
             var worldMovement = draggedFace.Normal * worldDistance;
             var localMovement = SectionBoxMath.InverseRotateLocal(worldMovement, initialState);

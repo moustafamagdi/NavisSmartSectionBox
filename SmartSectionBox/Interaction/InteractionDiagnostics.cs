@@ -22,6 +22,8 @@ namespace SmartSectionBox.Interaction
             builder.Append("screen=").Append(Point(x, y));
             builder.Append(" captured=").Append(captured);
             builder.Append(" selected=").Append(FaceName(probe == null ? null : probe.Selected));
+            builder.Append(" selectedIndex=").Append(probe == null ? -1 : probe.SelectedIndex);
+            builder.Append(" candidateCount=").Append(probe == null || probe.Candidates == null ? 0 : probe.Candidates.Count);
             builder.Append(" box=").Append(Box(state));
             builder.Append(" candidates=").Append(Candidates(probe));
             Logger.Info(builder.ToString());

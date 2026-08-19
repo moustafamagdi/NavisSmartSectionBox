@@ -87,8 +87,9 @@ The dock pane is intentionally organized as a two-step workflow that remains rea
 1. Run **Smart Section Box**. The dock pane uses a clean light theme and has an explicit **1. Create or Refit** section. Select **Fit to Model** to create an initial box around the complete model, or **Fit to Selection** to create one around selected items. This is the required first step; the exact-coordinate controls remain disabled until Navisworks accepts a box.
 2. Click **Enable Face Pull in 3D View**. This activates Smart Section Box’s custom interaction mode and the status panel confirms it. Custom tools are exclusive in Navisworks: selecting the native **Move**, **Rotate**, or **Scale** tool replaces Face Pull, so click **Enable Face Pull in 3D View** again whenever one of those native tools was used.
 3. Use **2. Edit Section Box** for exact Min/Max X, Y, and Z values. There are no sliders, so the dock pane remains usable when narrow. The **On** checkbox enables/disables the current box and **Live** controls whether a face drag updates the model continuously.
-4. With Face Pull active, move the pointer over a visible native section-box face in the active 3D viewport, press the left mouse button, and drag. The tool tests the full projected face quadrilateral, rather than its center only, and moves that face alone along its transformed normal.
-5. Hold **Shift** for the configurable coarse multiplier (default 2.0) or **Ctrl** for the configurable fine multiplier (default 0.25). Release to apply the exact final state immediately. Press **Esc** instead to restore the state at mouse-down.
+4. With Face Pull active, move the pointer over a visible native section-box face in the active 3D viewport, press the left mouse button, and drag. The tool tests the full projected face quadrilateral, rather than its center only, and moves that face alone along its transformed normal. Projected drag direction is derived from local box-face dimensions, avoiding the world-origin scaling error that can invert pulls in large-coordinate civil models.
+5. When several faces overlap in the viewport, a normal press-and-drag chooses the front/default candidate. Hold **Ctrl** while pressing and dragging to choose the next underlay candidate; repeat the Ctrl gesture at the same location to cycle through the available faces. The selected candidate index is written to the diagnostic log.
+6. Hold **Shift** for the configurable coarse multiplier (default 2.0). **Ctrl** is reserved for underlay face selection at mouse-down; use normal dragging after the face is captured. Release to apply the exact final state immediately. Press **Esc** instead to restore the state at mouse-down.
 
 > **First-use expectation:** a box fitted to the whole model initially produces little or no visible cut because it encloses the full model. Drag one of its faces inward, or fit to a selected group, to create a visible cut.
 
@@ -183,7 +184,8 @@ Validate the compiled plug-in in an installed Navisworks 2024 host before produc
 | UI and viewport differ | Click **Read Native Box**. The next native payload becomes the source template. |
 | The pane is clipped or controls overlap | Deploy the current DLL, delete the prior `SmartSectionBox.bundle`, then recreate the bundle from `Deployment/SmartSectionBox.bundle`. The revised pane has no sliders and uses a responsive host. |
 | Exact fields are disabled | Click **Fit to Model** or **Fit to Selection** first. If the status reports rejection, copy `%AppData%\\NavisworksSmartSectionBox\\Logs` for diagnosis. |
-| The wrong face is selected | Enable **Record face-pull diagnostics**, reproduce one click-and-drag attempt, then share only the `FACE_DIAGNOSTIC` lines from the newest log plus a viewport screenshot. |
+| The wrong face is selected | Hold **Ctrl** while press-and-dragging at the same point to cycle to the next underlay candidate. Enable **Record face-pull diagnostics** and share the `FACE_DIAGNOSTIC` lines plus a viewport screenshot if selection is still unexpected. |
+| A face pulls in the opposite direction | Install the current update, which derives screen direction from local face dimensions rather than distance from world origin. Capture diagnostics if a direction inversion persists. |
 
 ## References
 

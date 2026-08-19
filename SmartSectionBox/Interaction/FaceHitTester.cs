@@ -19,6 +19,7 @@ namespace SmartSectionBox.Interaction
     {
         public IReadOnlyList<FaceHitResult> Candidates { get; set; }
         public FaceHitResult Selected { get; set; }
+        public int SelectedIndex { get; set; } = -1;
     }
 
     public sealed class FaceHitTester
@@ -33,6 +34,24 @@ namespace SmartSectionBox.Interaction
         public FaceHitResult HitTest(SectionBoxState state, View view, int mouseX, int mouseY, double edgeTolerancePixels = 10.0)
         {
             return Probe(state, view, mouseX, mouseY, edgeTolerancePixels).Selected;
+        }
+
+        public FaceHitResult SelectCandidate(FaceHitProbe probe, bool requestUnderlay, int mouseX, int mouseY)
+        {
+            if (probe == null || probe.Candidates == null || probe.Candidates.Count == 0) return null;
+            var index = 0;
+            if (requestUnderlay && probe.Candidates.Count > 1)
+            {
+                // Ctrl selects the next face behind the default candidate. Repeated Ctrl-clicks
+                // at nearly the same screen position cycle predictably through every overlap.
+                var nearestExisting = LastSelectionIndex(probe.Candidates, mouseX, mouseY);
+                index = nearestExisting < 0 ? 1 : (nearestExisting + 1) % probe.Candidates.Count;
+            }
+
+            probe.SelectedIndex = index;
+            probe.Selected = probe.Candidates[index];
+            RememberSelection(probe.Selected, mouseX, mouseY, index);
+            return probe.Selected;
         }
 
         public FaceHitProbe Probe(SectionBoxState state, View view, int mouseX, int mouseY, double edgeTolerancePixels = 10.0)
@@ -67,7 +86,32 @@ namespace SmartSectionBox.Interaction
                 .ThenBy(c => c.Face.Id)
                 .ToList();
             probe.Selected = probe.Candidates.FirstOrDefault();
+            probe.SelectedIndex = probe.Selected == null ? -1 : 0;
             return probe;
+        }
+
+        private int lastMouseX = int.MinValue;
+        private int lastMouseY = int.MinValue;
+        private int lastCandidateIndex = -1;
+        private SectionBoxFaceId lastFaceId;
+
+        private int LastSelectionIndex(IReadOnlyList<FaceHitResult> candidates, int mouseX, int mouseY)
+        {
+            var withinCycleRadius = Math.Abs(mouseX - lastMouseX) <= 12 && Math.Abs(mouseY - lastMouseY) <= 12;
+            if (!withinCycleRadius) return -1;
+            for (var i = 0; i < candidates.Count; i++)
+            {
+                if (candidates[i].Face.Id == lastFaceId) return i;
+            }
+            return lastCandidateIndex >= 0 && lastCandidateIndex < candidates.Count ? lastCandidateIndex : -1;
+        }
+
+        private void RememberSelection(FaceHitResult selection, int mouseX, int mouseY, int index)
+        {
+            lastMouseX = mouseX;
+            lastMouseY = mouseY;
+            lastCandidateIndex = index;
+            lastFaceId = selection.Face.Id;
         }
 
         private ScreenPoint[] ProjectFace(SectionBoxFace face, View view)
