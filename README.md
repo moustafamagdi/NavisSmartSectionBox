@@ -94,6 +94,18 @@ The dock pane is intentionally organized as a two-step workflow that remains rea
 
 When the pointer is not over a face and no face drag is active, mouse callbacks return `false`; Navisworks navigation and normal input remain available. Autodesk’s input sample demonstrates this custom-tool pattern and calls `RequestDelayedRedraw(ViewRedrawRequests.Render)` after interaction changes.
 
+## Face-Pull Diagnostics and Calibration
+
+The **Record face-pull diagnostics** checkbox is off by default. Turn it on only while investigating a face-selection issue, then use **Enable Face Pull in 3D View**, perform one or more click-and-drag attempts, and turn it off again. The trace is written to:
+
+```text
+%AppData%\NavisworksSmartSectionBox\Logs\smart-section-box-YYYY-MM-DD.log
+```
+
+Each `FACE_DIAGNOSTIC` entry records the screen click point, the complete projected candidate-face list, whether the pointer was inside a candidate or merely close to an edge, edge distance, projection depth, projected face polygons, the selected face, and the start/final coordinate after the drag. It intentionally excludes model properties and item-selection data.
+
+A typical sequence has `POINTER_DOWN`, `DRAG_BEGIN`, and `DRAG_END` entries. Send only those `FACE_DIAGNOSTIC` lines, together with a screenshot of the view, to calibrate hit selection for the camera angle and box geometry that produced the unexpected result.
+
 ## Projection and Drag Mathematics
 
 The tool does not map mouse X to model X or mouse Y to model Y. `View.ProjectPoint` supplies face-corner screen coordinates in the active perspective or orthographic view. The hit tester uses a point-in-polygon test, tolerates near edges, and sorts overlapping candidates deterministically by edge distance, projected depth, and face identity.
@@ -171,6 +183,7 @@ Validate the compiled plug-in in an installed Navisworks 2024 host before produc
 | UI and viewport differ | Click **Read Native Box**. The next native payload becomes the source template. |
 | The pane is clipped or controls overlap | Deploy the current DLL, delete the prior `SmartSectionBox.bundle`, then recreate the bundle from `Deployment/SmartSectionBox.bundle`. The revised pane has no sliders and uses a responsive host. |
 | Exact fields are disabled | Click **Fit to Model** or **Fit to Selection** first. If the status reports rejection, copy `%AppData%\\NavisworksSmartSectionBox\\Logs` for diagnosis. |
+| The wrong face is selected | Enable **Record face-pull diagnostics**, reproduce one click-and-drag attempt, then share only the `FACE_DIAGNOSTIC` lines from the newest log plus a viewport screenshot. |
 
 ## References
 

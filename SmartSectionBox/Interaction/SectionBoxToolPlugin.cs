@@ -72,10 +72,13 @@ namespace SmartSectionBox.Interaction
                 EnsureController();
                 if (button != LeftMouseButton) return false;
                 var state = SmartSectionBoxRuntime.Service.GetCurrentBox();
-                var hit = hitTester.HitTest(state, view, x, y);
+                var probe = hitTester.Probe(state, view, x, y);
+                var hit = probe.Selected;
                 var captured = dragController.Begin(hit, x, y, view);
+                InteractionDiagnostics.LogPointerDown(x, y, probe, state, captured);
                 if (captured)
                 {
+                    InteractionDiagnostics.LogDragBegin(x, y, hit, dragController.ScreenNormal, dragController.InitialCoordinate);
                     PublishHover(dragController.Hover);
                     view.RequestDelayedRedraw(ViewRedrawRequests.Render);
                 }
@@ -95,7 +98,11 @@ namespace SmartSectionBox.Interaction
                 EnsureController();
                 if (dragController.State != DragState.Dragging || button != LeftMouseButton) return false;
                 dragController.Update(x, y, modifiers, view);
+                var face = dragController.DraggedFaceId;
+                var initialCoordinate = dragController.InitialCoordinate;
+                var finalCoordinate = dragController.WorkingCoordinate;
                 var committed = dragController.Commit();
+                InteractionDiagnostics.LogDragEnd(dragController.MouseStartX, dragController.MouseStartY, x, y, face, initialCoordinate, finalCoordinate, committed);
                 PublishHover(FaceHoverState.None);
                 view.RequestDelayedRedraw(ViewRedrawRequests.Render);
                 return committed;
@@ -113,7 +120,10 @@ namespace SmartSectionBox.Interaction
             {
                 EnsureController();
                 if (key != EscapeVirtualKey || dragController.State != DragState.Dragging) return false;
+                var face = dragController.DraggedFaceId;
+                var restoredCoordinate = dragController.InitialCoordinate;
                 var restored = dragController.Cancel();
+                InteractionDiagnostics.LogDragCancel(face, restoredCoordinate);
                 PublishHover(FaceHoverState.None);
                 view.RequestDelayedRedraw(ViewRedrawRequests.Render);
                 return restored;

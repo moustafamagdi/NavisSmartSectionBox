@@ -17,6 +17,7 @@ namespace SmartSectionBox.UI.ViewModels
         private SectionBoxState state;
         private bool isSynchronizing;
         private bool liveUpdates = true;
+        private bool interactionDiagnosticsEnabled;
         private string status = "Step 1: click Fit to Model or Fit to Selection to create and activate the section box.";
         private string presetName = "Default";
 
@@ -72,6 +73,19 @@ namespace SmartSectionBox.UI.ViewModels
             set
             {
                 if (SetField(ref liveUpdates, value)) SmartSectionBoxRuntime.LiveUpdates = value;
+            }
+        }
+
+        public bool InteractionDiagnosticsEnabled
+        {
+            get => interactionDiagnosticsEnabled;
+            set
+            {
+                if (!SetField(ref interactionDiagnosticsEnabled, value)) return;
+                InteractionDiagnostics.Enabled = value;
+                Status = value
+                    ? "Face-pull diagnostics are enabled. Click and drag a section-box face, then share the FACE_DIAGNOSTIC log entries."
+                    : "Face-pull diagnostics are disabled.";
             }
         }
 

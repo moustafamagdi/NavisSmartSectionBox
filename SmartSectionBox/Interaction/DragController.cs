@@ -34,6 +34,12 @@ namespace SmartSectionBox.Interaction
         public bool LiveUpdates { get; set; } = true;
         public double ShiftMultiplier { get; set; } = 2.0;
         public double CtrlMultiplier { get; set; } = 0.25;
+        public SectionBoxFaceId DraggedFaceId => draggedFace == null ? default(SectionBoxFaceId) : draggedFace.Id;
+        public int MouseStartX => mouseStartX;
+        public int MouseStartY => mouseStartY;
+        public ScreenPoint ScreenNormal => screenNormal;
+        public double InitialCoordinate => draggedFace == null || initialState == null ? 0 : initialState.GetFaceCoordinate(draggedFace.Id);
+        public double WorkingCoordinate => draggedFace == null || workingState == null ? 0 : workingState.GetFaceCoordinate(draggedFace.Id);
 
         public void UpdateHover(FaceHitResult hit)
         {

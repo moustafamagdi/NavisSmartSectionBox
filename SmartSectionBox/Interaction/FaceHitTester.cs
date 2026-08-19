@@ -12,6 +12,13 @@ namespace SmartSectionBox.Interaction
         public ScreenPoint[] Polygon { get; set; }
         public double AverageDepth { get; set; }
         public double DistanceToPolygon { get; set; }
+        public bool IsInsidePolygon { get; set; }
+    }
+
+    public sealed class FaceHitProbe
+    {
+        public IReadOnlyList<FaceHitResult> Candidates { get; set; }
+        public FaceHitResult Selected { get; set; }
     }
 
     public sealed class FaceHitTester
@@ -25,7 +32,14 @@ namespace SmartSectionBox.Interaction
 
         public FaceHitResult HitTest(SectionBoxState state, View view, int mouseX, int mouseY, double edgeTolerancePixels = 10.0)
         {
-            if (state == null || !state.Enabled || view == null) return null;
+            return Probe(state, view, mouseX, mouseY, edgeTolerancePixels).Selected;
+        }
+
+        public FaceHitProbe Probe(SectionBoxState state, View view, int mouseX, int mouseY, double edgeTolerancePixels = 10.0)
+        {
+            var probe = new FaceHitProbe { Candidates = new List<FaceHitResult>() };
+            if (state == null || !state.Enabled || view == null) return probe;
+
             var candidates = new List<FaceHitResult>();
             foreach (var face in SectionBoxMath.GetFaces(state))
             {
@@ -42,15 +56,18 @@ namespace SmartSectionBox.Interaction
                     Face = face,
                     Polygon = polygon,
                     AverageDepth = polygon.Average(p => p.Depth),
-                    DistanceToPolygon = distance
+                    DistanceToPolygon = distance,
+                    IsInsidePolygon = inside
                 });
             }
 
-            return candidates
+            probe.Candidates = candidates
                 .OrderBy(c => c.DistanceToPolygon)
                 .ThenBy(c => c.AverageDepth)
                 .ThenBy(c => c.Face.Id)
-                .FirstOrDefault();
+                .ToList();
+            probe.Selected = probe.Candidates.FirstOrDefault();
+            return probe;
         }
 
         private ScreenPoint[] ProjectFace(SectionBoxFace face, View view)
