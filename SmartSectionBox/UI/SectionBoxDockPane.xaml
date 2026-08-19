@@ -20,14 +20,14 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="10">
             <TextBlock Text="SMART SECTION BOX" FontWeight="Bold" FontSize="16" Margin="2,2,2,1" />
-            <TextBlock Text="Select a model element, or retain an existing Navisworks Box section. Then activate and pull faces directly in the 3D view."
+            <TextBlock Text="Select a model element, or retain an existing Navisworks Box section. Then activate and pull faces directly on the light-green box in the 3D view."
                        Foreground="#4C6378" TextWrapping="Wrap" Margin="2,0,2,9" />
 
             <Border Background="White" BorderBrush="#C7D0D9" BorderThickness="1" Padding="8" Margin="2">
                 <StackPanel>
                     <TextBlock Text="DIRECT FACE MANIPULATION" FontSize="11" FontWeight="SemiBold" Foreground="#0B5F93" Margin="1,0,1,5" />
                     <Button Content="Activate Smart Section Box" Command="{Binding ActivateCommand}" />
-                    <TextBlock Text="Red faces are the camera-facing faces. Hold Ctrl while dragging to pick yellow underlay faces."
+                    <TextBlock Text="Drag inside the light-green box faces. Hold Ctrl while dragging to pick an overlapping back face."
                                Foreground="#52606D" FontSize="11" TextWrapping="Wrap" Margin="2,6,2,0" />
                     <CheckBox Content="Record face-pull diagnostics" IsChecked="{Binding InteractionDiagnosticsEnabled, Mode=TwoWay}"
                               ToolTip="Logs pointer location, candidate faces, selected face, and drag result." />

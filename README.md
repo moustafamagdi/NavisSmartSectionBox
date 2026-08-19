@@ -87,11 +87,11 @@ The dock pane is intentionally a minimal launcher. All section-box editing happe
 1. Either select one or more model elements, **or** create a standard Box section through Navisworks first.
 2. Run **Smart Section Box** and click **Activate Smart Section Box**. When a native box exists, the tool adopts it unchanged. When no native box exists, the tool fits a new box to the current element selection. If neither condition is met, it gives an instruction and does not create a model-wide box.
 3. The native blue Move box is not used as the interaction surface. Navisworks remains the internal clipping engine, while Smart Section Box draws its own interactive skin in the viewport.
-4. **Red faces** are the three camera-facing faces. Use a normal left press-and-drag to move the red face under the pointer.
-5. **Yellow faces** are the three back/underlay faces. Hold **Ctrl** while pressing and dragging to pick from the yellow underlay set. Face sets update automatically as the camera or box moves.
+4. The viewport shows a lightweight, translucent **light-green wireframe** box, similar to a Revit section box. It uses only the 12 boundary edges—there are no coloured or opaque face skins.
+5. Drag inside a visible wireframe face to move the nearest camera-facing face. When faces overlap from the current camera angle, hold **Ctrl** while pressing and dragging to choose from the invisible back/underlay face set.
 6. Hold **Shift** for the configurable coarse multiplier (default 2.0). Release to apply the final state immediately. Press **Esc** instead to restore the state at mouse-down.
 
-> The native Navisworks box is deliberately not placed into Move mode after activation. The custom red/yellow skin is the only intended user-facing manipulation control.
+> The native Navisworks box is deliberately not placed into Move mode after activation. The lightweight light-green wireframe is the only intended user-facing manipulation control.
 
 When the pointer is not over a face and no face drag is active, mouse callbacks return `false`; Navisworks navigation and normal input remain available. Autodesk’s input sample demonstrates this custom-tool pattern and calls `RequestDelayedRedraw(ViewRedrawRequests.Render)` after interaction changes.
 
@@ -179,12 +179,12 @@ Validate the compiled plug-in in an installed Navisworks 2024 host before produc
 | The command does not appear | Confirm the DLL is in a Navisworks 2024 plug-in folder and that it was compiled against the matching Manage/Simulate 2024 API DLL. |
 | Build fails resolving `Autodesk.Navisworks.Api.dll` | Set `NavisworksInstallDir` to the installed product folder. |
 | First box creation fails | Select valid model elements, activate the tool, then inspect the add-in log if Navisworks rejects the verified `ClipPlaneSet`/`OrientedBox3D` payload. |
-| A face does not capture | Confirm an element is selected or a native Navisworks Box section already exists, then click **Activate Smart Section Box**. Drag a red face normally, or hold **Ctrl** to choose yellow underlay faces. |
+| A face does not capture | Confirm an element is selected or a native Navisworks Box section already exists, then click **Activate Smart Section Box**. Drag inside a light-green wireframe face; hold **Ctrl** for an overlapping back face. |
 | Navigation is blocked | Verify a mouse button was released. Press **Esc** to cancel the drag transaction. |
 | UI and viewport differ | Reactivate the tool to adopt the current native box, then inspect the diagnostics log if the custom skin differs from clipping. |
 | The pane is clipped or controls overlap | Deploy the current DLL, delete the prior `SmartSectionBox.bundle`, then recreate the bundle from `Deployment/SmartSectionBox.bundle`. The revised pane has no sliders and uses a responsive host. |
 | Activation reports no target | Select at least one model element, or create a native Navisworks Box section, then activate the tool again. |
-| The wrong face is selected | Normal drags use the red front-face set; hold **Ctrl** for the yellow underlay set. Enable **Record face-pull diagnostics** and share the `FACE_DIAGNOSTIC` lines plus a viewport screenshot if selection is still unexpected. |
+| The wrong face is selected | Normal drags use the nearest camera-facing face; hold **Ctrl** for the invisible underlay set. Enable **Record face-pull diagnostics** and share the `FACE_DIAGNOSTIC` lines plus a viewport screenshot if selection is still unexpected. |
 | A face pulls in the opposite direction | Install the current update, which derives screen direction from local face dimensions rather than distance from world origin. Capture diagnostics if a direction inversion persists. |
 
 ## References
