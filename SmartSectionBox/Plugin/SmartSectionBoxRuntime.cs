@@ -37,7 +37,7 @@ namespace SmartSectionBox.Plugin
                 }
 
                 document.Tool.SetCustomToolPlugin(record.LoadPlugin());
-                message = "Smart Section Box is active. Drag red faces; hold Ctrl while dragging for yellow underlay faces.";
+                message = "Smart Section Box is active. Drag a visible face; hold Ctrl when pressing to select an underlay face.";
                 return true;
             }
             catch (Exception ex)

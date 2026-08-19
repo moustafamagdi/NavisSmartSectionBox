@@ -27,14 +27,18 @@
                 <StackPanel>
                     <TextBlock Text="DIRECT FACE MANIPULATION" FontSize="11" FontWeight="SemiBold" Foreground="#0B5F93" Margin="1,0,1,5" />
                     <Button Content="Activate Smart Section Box" Command="{Binding ActivateCommand}" />
-                    <TextBlock Text="Custom box drawing is disabled for performance. Hold Ctrl while dragging to use the back-face selection set."
+                    <TextBlock Text="Custom box drawing is disabled for performance. Hold Ctrl when pressing to pick from the back/underlay faces; click again to cycle if more than one is under the cursor."
                                Foreground="#52606D" FontSize="11" TextWrapping="Wrap" Margin="2,6,2,0" />
                     <CheckBox Content="Record face-pull diagnostics" IsChecked="{Binding InteractionDiagnosticsEnabled, Mode=TwoWay}"
                               ToolTip="Logs pointer location, candidate faces, selected face, and drag result." />
                 </StackPanel>
             </Border>
 
-            <Border Background="#F8FAFC" BorderBrush="#C7D0D9" BorderThickness="1" Padding="7" Margin="2,8,2,2">
+            <Border Background="#EFF6FF" BorderBrush="#BFD9F2" BorderThickness="1" Padding="7" Margin="2,8,2,2">
+                <TextBlock Text="{Binding HoverStatus}" TextWrapping="Wrap" Foreground="#0B5F93" FontSize="11" FontWeight="SemiBold" />
+            </Border>
+
+            <Border Background="#F8FAFC" BorderBrush="#C7D0D9" BorderThickness="1" Padding="7" Margin="2,4,2,2">
                 <TextBlock Text="{Binding Status}" TextWrapping="Wrap" Foreground="#0B5F93" FontSize="11" />
             </Border>
         </StackPanel>

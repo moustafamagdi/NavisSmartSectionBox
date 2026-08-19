@@ -86,8 +86,8 @@ The dock pane is intentionally a minimal launcher. All section-box editing happe
 
 1. Either select one or more model elements, **or** create a standard Box section through Navisworks first.
 2. Run **Smart Section Box** and click **Activate Smart Section Box**. When a native box exists, the tool adopts it unchanged. When no native box exists, the tool fits a new box to the current element selection. If neither condition is met, it gives an instruction and does not create a model-wide box.
-3. Navisworks remains the internal clipping engine. To preserve viewport performance on large federated models, Smart Section Box does **not** draw a custom box overlay.
-4. Direct interaction uses the current section-box geometry internally. Normal input selects the nearest valid camera-facing face. Hold **Ctrl** while pressing and dragging to select the back/underlay set; repeat a Ctrl click at nearly the same location within roughly two seconds to cycle deterministically through overlapping underlay faces.
+3. Navisworks remains the internal clipping engine. To preserve viewport performance on large federated models, Smart Section Box does **not** draw a custom box overlay. The light-blue hover status row in the dock pane reports the face that will be captured, such as `Face: +X (1968.007)`, without adding any viewport rendering.
+4. Direct interaction uses the current section-box geometry internally. Normal input selects the nearest valid camera-facing face. Hold **Ctrl** when pressing to select the back/underlay set; repeat a Ctrl click at nearly the same location within roughly two seconds to cycle deterministically through overlapping underlay faces.
 5. Hold **Shift** for the configurable coarse multiplier (default 2.0). Release to apply the final state immediately. Press **Esc** instead to restore the state at mouse-down.
 
 > The native Navisworks box is deliberately not placed into Move mode after activation, and no custom wireframe is rendered. This performance-focused mode updates clipping without additional viewport drawing.
