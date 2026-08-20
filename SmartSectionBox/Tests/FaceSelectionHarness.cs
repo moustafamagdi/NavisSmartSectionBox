@@ -11,6 +11,7 @@ internal static class FaceSelectionHarness
         {
             var tester = new FaceHitTester(new CameraProjection());
 
+            VerifySlopedOrthographicPolygonContainment();
             var frontProbe = Probe(SectionBoxFaceId.MaxZ, SectionBoxFaceId.MaxY, SectionBoxFaceId.MinX);
             Assert(tester.SelectCandidate(frontProbe).Face.Id == SectionBoxFaceId.MaxZ,
                 "Front-facing selection must choose the nearest ordered candidate.");
@@ -35,7 +36,29 @@ internal static class FaceSelectionHarness
         }
     }
 
-    private static FaceHitProbe Probe(params SectionBoxFaceId[] faceIds)
+            private static void VerifySlopedOrthographicPolygonContainment()
+        {
+            // This is the visible MinY polygon shape captured from the user's Orthographic host
+            // trace. Its downward-oriented edges require a signed scanline denominator.
+            var polygon = new List<ScreenPoint>
+            {
+                new ScreenPoint(562, 220, 0),
+                new ScreenPoint(562, 350, 0),
+                new ScreenPoint(951, 516, 0),
+                new ScreenPoint(951, 387, 0)
+            };
+            Assert(FaceHitTester.PointInPolygon(new ScreenPoint(733, 344, 0), polygon),
+                "A point inside a sloped Orthographic Y-face polygon must be selectable.");
+            Assert(!FaceHitTester.PointInPolygon(new ScreenPoint(733, 180, 0), polygon),
+                "A point above a sloped Orthographic Y-face polygon must not be selectable.");
+
+            polygon.Reverse();
+            Assert(FaceHitTester.PointInPolygon(new ScreenPoint(733, 344, 0), polygon),
+                "Polygon winding must not change Orthographic face containment.");
+        }
+
+        private static FaceHitProbe Probe(params SectionBoxFaceId[] faceIds)
+
     {
         var candidates = new List<FaceHitResult>();
         foreach (var faceId in faceIds)

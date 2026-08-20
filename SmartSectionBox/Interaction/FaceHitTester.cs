@@ -264,7 +264,7 @@ namespace SmartSectionBox.Interaction
             return projected;
         }
 
-        private static bool PointInPolygon(ScreenPoint point, IReadOnlyList<ScreenPoint> polygon)
+        internal static bool PointInPolygon(ScreenPoint point, IReadOnlyList<ScreenPoint> polygon)
         {
             var inside = false;
             for (var i = 0; i < polygon.Count; i++)
@@ -272,8 +272,14 @@ namespace SmartSectionBox.Interaction
                 var j = (i + polygon.Count - 1) % polygon.Count;
                 var a = polygon[i];
                 var b = polygon[j];
+                var deltaY = b.Y - a.Y;
+                if (Math.Abs(deltaY) < 1e-12) continue;
+
+                // Preserve the denominator sign. Replacing a negative slope with a tiny positive
+                // value sends the crossing point millions of pixels away, which is why a sloped
+                // Orthographic Y face was pickable in only part of its visible polygon.
                 var crosses = ((a.Y > point.Y) != (b.Y > point.Y)) &&
-                              (point.X < (b.X - a.X) * (point.Y - a.Y) / Math.Max(b.Y - a.Y, 1e-12) + a.X);
+                              (point.X < (b.X - a.X) * (point.Y - a.Y) / deltaY + a.X);
                 if (crosses) inside = !inside;
             }
             return inside;
