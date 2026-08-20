@@ -150,7 +150,7 @@ namespace SmartSectionBox.Core
                         }
                     }
 
-                    message = "Adopted the existing Navisworks section box. Drag a visible face; hold Ctrl to target an underlay face.";
+                    message = "Ready — drag a visible face.";
                     PublishStatus(message);
                     return true;
                 }
@@ -161,7 +161,7 @@ namespace SmartSectionBox.Core
                     return false;
                 }
 
-                message = "Created a section box around the current selection. Drag a visible face; hold Ctrl to target an underlay face.";
+                message = "Ready — drag a visible face.";
                 PublishStatus(message);
                 return true;
             }

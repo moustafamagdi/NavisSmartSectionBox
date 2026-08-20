@@ -18,8 +18,8 @@ namespace SmartSectionBox.UI.ViewModels
         private readonly SectionBoxService service;
         private bool disposed;
         private bool interactionDiagnosticsEnabled;
-        private string status = "Select model elements, or keep an existing Navisworks Box section active, then activate Smart Section Box.";
-        private string hoverStatus = "No face under cursor.";
+        private string status = "Ready — activate, then drag a visible face.";
+        private string hoverStatus;
 
         public SectionBoxViewModel(SectionBoxService service)
         {
@@ -36,8 +36,13 @@ namespace SmartSectionBox.UI.ViewModels
         public string HoverStatus
         {
             get => hoverStatus;
-            private set => SetField(ref hoverStatus, value);
+            private set
+            {
+                if (SetField(ref hoverStatus, value)) RaisePropertyChanged(nameof(DisplayStatus));
+            }
         }
+
+        public string DisplayStatus => string.IsNullOrWhiteSpace(HoverStatus) ? Status : HoverStatus;
 
         public bool InteractionDiagnosticsEnabled
         {
@@ -46,16 +51,17 @@ namespace SmartSectionBox.UI.ViewModels
             {
                 if (!SetField(ref interactionDiagnosticsEnabled, value)) return;
                 InteractionDiagnostics.Enabled = value;
-                Status = value
-                    ? "Diagnostics enabled. The log will record face-selection decisions while you drag."
-                    : "Diagnostics disabled.";
+                Status = value ? "Diagnostics on." : "Diagnostics off.";
             }
         }
 
         public string Status
         {
             get => status;
-            private set => SetField(ref status, value);
+            private set
+            {
+                if (SetField(ref status, value)) RaisePropertyChanged(nameof(DisplayStatus));
+            }
         }
 
         public void Dispose()
@@ -96,18 +102,23 @@ namespace SmartSectionBox.UI.ViewModels
 
         private static string Describe(FaceHoverState hover)
         {
-            if (hover == null || !hover.IsHovering) return "No face under cursor.";
+            if (hover == null || !hover.IsHovering) return null;
             var side = hover.PositiveSide ? "+" : "-";
-            return "Face: " + side + hover.Axis + "  (" + hover.Coordinate.ToString("0.###") + ")";
+            return "Face " + side + hover.Axis + " — drag to move.";
         }
 
         private bool SetField<T>(ref T field, T value, [CallerMemberName] string name = null)
         {
             if (Equals(field, value)) return false;
             field = value;
+            RaisePropertyChanged(name);
+            return true;
+        }
+
+        private void RaisePropertyChanged(string name)
+        {
             var handler = PropertyChanged;
             if (handler != null) handler(this, new PropertyChangedEventArgs(name));
-            return true;
         }
     }
 }
