@@ -32,6 +32,7 @@ internal static class CameraRayHarness
         CameraRayCalibration calibration;
         Assert(builder.TryCreateRay(view, 175, 640, out ray, out calibration), "Perspective ray must calibrate against ProjectPoint.");
         Assert(calibration.IsValid && calibration.MaxErrorPixels <= 1.5, "Perspective calibration error must stay within the picker acceptance limit.");
+        Assert(calibration.QuaternionConvention.StartsWith("native-Matrix3"), "Perspective calibration must prefer the host-native Matrix3 rotation basis.");
         AssertRoundTrip(view, ray, 175, 640, 50.0, "Perspective ray must project back to its requested pixel.");
     }
 
@@ -43,6 +44,7 @@ internal static class CameraRayHarness
         CameraRayCalibration calibration;
         Assert(builder.TryCreateRay(view, 1010, 110, out ray, out calibration), "Orthographic ray must calibrate against ProjectPoint.");
         Assert(calibration.IsValid && calibration.MaxErrorPixels <= 1.5, "Orthographic calibration error must stay within the picker acceptance limit.");
+        Assert(calibration.QuaternionConvention.StartsWith("native-Matrix3"), "Orthographic calibration must prefer the host-native Matrix3 rotation basis.");
         AssertRoundTrip(view, ray, 1010, 110, 30.0, "Orthographic ray must project back to its requested pixel.");
     }
 
@@ -85,6 +87,7 @@ internal static class CameraRayHarness
         Assert(!builder.TryCreateRay(view, view.Width / 2, view.Height / 2, out ray, out calibration),
             "A non-round-tripping ProjectPoint implementation must reject calibrated ray construction.");
         Assert(!calibration.IsValid, "A rejected ray must report invalid calibration.");
+        Assert(calibration.QuaternionConvention != "none", "A rejected ray must retain its best tested basis for host diagnostics.");
 
         var state = new SectionBoxState
         {

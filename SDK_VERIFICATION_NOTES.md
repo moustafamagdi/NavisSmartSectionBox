@@ -56,3 +56,11 @@ The extracted official 2027 SDK is retained locally under `/home/ubuntu/naviswor
 
 [8]: https://aps.autodesk.com/developer/overview/navisworks-api "Navisworks API and SDK 2027 — Autodesk Platform Services"
 [9]: https://aps.autodesk.com/marketplace/publisher-center/navisworks-publisher-guidelines "Navisworks publisher guidelines — Autodesk Platform Services"
+
+## Camera-basis calibration correction
+
+The host diagnostic trace showed every click using `picker=fallback-2d` with `camera-basis-calibration-failed`; therefore the prior raw A/B/C/D quaternion reconstruction was not trusted as the primary camera basis. Both the 2024 and 2027 SDK references document `Matrix3(Rotation3D)` as **“Make from a rotation”** and document `Matrix3.Get(int row, int column)` for reading individual coefficients. The ray builder now constructs this managed native matrix from `Viewpoint.Rotation`, tests both camera-to-world column and world-to-camera row interpretations against `View.ProjectPoint`, and accepts only the interpretation whose screen-space round trip is within 1.5 pixels. The former raw component layouts remain guarded compatibility candidates only. Failed calibration diagnostics preserve the best tested basis, scale, mean error, and maximum error for host-specific follow-up.
+
+This removes the add-in’s dependence on an undocumented A/B/C/D quaternion ordering while retaining the explicit safe 2D fallback if a future host cannot calibrate.
+
+[10]: https://aps.autodesk.com/developer/overview/navisworks-api "Navisworks API — Autodesk Platform Services"

@@ -211,7 +211,7 @@ namespace SmartSectionBox.Interaction
         {
             CalibrationModel best = null;
             var samplePoints = CalibrationPoints(snapshot.ViewportWidth, snapshot.ViewportHeight);
-            foreach (var candidate in CalibrationModel.Candidates())
+            foreach (var candidate in CalibrationModel.Candidates(snapshot.HasNativeMatrix))
             {
                 var result = CalibrateCandidate(view, snapshot, candidate, samplePoints);
                 if (best == null || result.MeanErrorPixels < best.MeanErrorPixels)
@@ -222,7 +222,15 @@ namespace SmartSectionBox.Interaction
 
             if (best == null || double.IsInfinity(best.MeanErrorPixels) || best.MaxErrorPixels > MaximumCalibrationErrorPixels)
             {
-                calibration = CameraRayCalibration.Invalid("camera-basis-calibration-failed");
+                calibration = new CameraRayCalibration
+                {
+                    IsValid = false,
+                    MeanErrorPixels = best == null ? double.PositiveInfinity : best.MeanErrorPixels,
+                    MaxErrorPixels = best == null ? double.PositiveInfinity : best.MaxErrorPixels,
+                    ExtentScale = best == null ? 0 : best.ExtentScale,
+                    QuaternionConvention = best == null ? "none" : best.Name,
+                    FailureReason = "camera-basis-calibration-failed"
+                };
                 return null;
             }
 
@@ -343,6 +351,30 @@ namespace SmartSectionBox.Interaction
 
         private static void GetBasis(CameraSnapshot snapshot, CalibrationModel model, out Vector3 right, out Vector3 up, out Vector3 forward)
         {
+            if (model.BasisSource == BasisSource.NativeMatrix)
+            {
+                if (model.UseInverse)
+                {
+                    // Rows are the world-space axes when the native matrix is interpreted as
+                    // world-to-camera. The calibration chooses this only if ProjectPoint agrees.
+                    right = new Vector3(snapshot.M00, snapshot.M01, snapshot.M02).Normalized();
+                    up = new Vector3(snapshot.M10, snapshot.M11, snapshot.M12).Normalized();
+                    forward = new Vector3(-snapshot.M20, -snapshot.M21, -snapshot.M22).Normalized();
+                }
+                else
+                {
+                    // Columns are the world-space images of the local camera +X/+Y/+Z axes
+                    // when the native matrix is interpreted as camera-to-world.
+                    right = new Vector3(snapshot.M00, snapshot.M10, snapshot.M20).Normalized();
+                    up = new Vector3(snapshot.M01, snapshot.M11, snapshot.M21).Normalized();
+                    forward = new Vector3(-snapshot.M02, -snapshot.M12, -snapshot.M22).Normalized();
+                }
+
+                right = Vector3.Cross(forward, up).Normalized();
+                up = Vector3.Cross(right, forward).Normalized();
+                return;
+            }
+
             var x = model.ComponentLayout == QuaternionLayout.ABcd ? snapshot.QuaternionA : snapshot.QuaternionB;
             var y = model.ComponentLayout == QuaternionLayout.ABcd ? snapshot.QuaternionB : snapshot.QuaternionC;
             var z = model.ComponentLayout == QuaternionLayout.ABcd ? snapshot.QuaternionC : snapshot.QuaternionD;
@@ -415,8 +447,15 @@ namespace SmartSectionBox.Interaction
             WAbc
         }
 
+        private enum BasisSource
+        {
+            NativeMatrix,
+            Quaternion
+        }
+
         private sealed class CalibrationModel
         {
+            public BasisSource BasisSource { get; private set; }
             public QuaternionLayout ComponentLayout { get; private set; }
             public bool UseInverse { get; private set; }
             public double ExtentScale { get; private set; }
@@ -424,33 +463,41 @@ namespace SmartSectionBox.Interaction
             public double MeanErrorPixels { get; set; }
             public double MaxErrorPixels { get; set; }
 
-            private CalibrationModel(QuaternionLayout layout, bool useInverse, double extentScale)
+            private CalibrationModel(BasisSource basisSource, QuaternionLayout layout, bool useInverse, double extentScale)
             {
+                BasisSource = basisSource;
                 ComponentLayout = layout;
                 UseInverse = useInverse;
                 ExtentScale = extentScale;
-                Name = (layout == QuaternionLayout.ABcd ? "A,B,C,D=>x,y,z,w" : "A,B,C,D=>w,x,y,z") +
-                       (useInverse ? "; inverse" : "; direct");
+                Name = basisSource == BasisSource.NativeMatrix
+                    ? "native-Matrix3(Rotation3D)" + (useInverse ? "; inverse" : "; direct")
+                    : (layout == QuaternionLayout.ABcd ? "A,B,C,D=>x,y,z,w" : "A,B,C,D=>w,x,y,z") +
+                      (useInverse ? "; inverse" : "; direct");
                 MeanErrorPixels = double.PositiveInfinity;
                 MaxErrorPixels = double.PositiveInfinity;
             }
 
-            public static IEnumerable<CalibrationModel> Candidates()
+            public static IEnumerable<CalibrationModel> Candidates(bool hasNativeMatrix)
             {
-                yield return new CalibrationModel(QuaternionLayout.ABcd, false, 1.0);
-                yield return new CalibrationModel(QuaternionLayout.ABcd, true, 1.0);
-                yield return new CalibrationModel(QuaternionLayout.WAbc, false, 1.0);
-                yield return new CalibrationModel(QuaternionLayout.WAbc, true, 1.0);
+                if (hasNativeMatrix)
+                {
+                    yield return new CalibrationModel(BasisSource.NativeMatrix, QuaternionLayout.ABcd, false, 1.0);
+                    yield return new CalibrationModel(BasisSource.NativeMatrix, QuaternionLayout.ABcd, true, 1.0);
+                }
+                yield return new CalibrationModel(BasisSource.Quaternion, QuaternionLayout.ABcd, false, 1.0);
+                yield return new CalibrationModel(BasisSource.Quaternion, QuaternionLayout.ABcd, true, 1.0);
+                yield return new CalibrationModel(BasisSource.Quaternion, QuaternionLayout.WAbc, false, 1.0);
+                yield return new CalibrationModel(BasisSource.Quaternion, QuaternionLayout.WAbc, true, 1.0);
             }
 
             public CalibrationModel WithScale(double scale)
             {
-                return new CalibrationModel(ComponentLayout, UseInverse, scale);
+                return new CalibrationModel(BasisSource, ComponentLayout, UseInverse, scale);
             }
 
             public CalibrationModel WithFailure()
             {
-                return new CalibrationModel(ComponentLayout, UseInverse, ExtentScale);
+                return new CalibrationModel(BasisSource, ComponentLayout, UseInverse, ExtentScale);
             }
         }
 
@@ -461,6 +508,16 @@ namespace SmartSectionBox.Interaction
             public double QuaternionB;
             public double QuaternionC;
             public double QuaternionD;
+            public bool HasNativeMatrix;
+            public double M00;
+            public double M01;
+            public double M02;
+            public double M10;
+            public double M11;
+            public double M12;
+            public double M20;
+            public double M21;
+            public double M22;
             public ViewpointProjection Projection;
             public double VerticalExtentAtFocalDistance;
             public double HorizontalExtentAtFocalDistance;
@@ -490,6 +547,23 @@ namespace SmartSectionBox.Interaction
                     ViewportHeight = view.Height
                 };
 
+                try
+                {
+                    using (var nativeMatrix = new Matrix3(viewpoint.Rotation))
+                    {
+                        snapshot.M00 = nativeMatrix.Get(0, 0); snapshot.M01 = nativeMatrix.Get(0, 1); snapshot.M02 = nativeMatrix.Get(0, 2);
+                        snapshot.M10 = nativeMatrix.Get(1, 0); snapshot.M11 = nativeMatrix.Get(1, 1); snapshot.M12 = nativeMatrix.Get(1, 2);
+                        snapshot.M20 = nativeMatrix.Get(2, 0); snapshot.M21 = nativeMatrix.Get(2, 1); snapshot.M22 = nativeMatrix.Get(2, 2);
+                        snapshot.HasNativeMatrix = true;
+                    }
+                }
+                catch
+                {
+                    // Matrix3 is the preferred managed path. Keep the established quaternion
+                    // candidates available on hosts where matrix materialization is unavailable.
+                    snapshot.HasNativeMatrix = false;
+                }
+
                 var quaternionLength = Math.Sqrt(snapshot.QuaternionA * snapshot.QuaternionA + snapshot.QuaternionB * snapshot.QuaternionB + snapshot.QuaternionC * snapshot.QuaternionC + snapshot.QuaternionD * snapshot.QuaternionD);
                 snapshot.IsUsable = vertical > 1e-9 && snapshot.HorizontalExtentAtFocalDistance > 1e-9 &&
                                     (snapshot.Projection == ViewpointProjection.Orthographic || focal > 1e-9) &&
@@ -503,6 +577,10 @@ namespace SmartSectionBox.Interaction
                 return NearlyEqual(Position.X, other.Position.X) && NearlyEqual(Position.Y, other.Position.Y) && NearlyEqual(Position.Z, other.Position.Z) &&
                        NearlyEqual(QuaternionA, other.QuaternionA) && NearlyEqual(QuaternionB, other.QuaternionB) &&
                        NearlyEqual(QuaternionC, other.QuaternionC) && NearlyEqual(QuaternionD, other.QuaternionD) &&
+                       HasNativeMatrix == other.HasNativeMatrix &&
+                       (!HasNativeMatrix || (NearlyEqual(M00, other.M00) && NearlyEqual(M01, other.M01) && NearlyEqual(M02, other.M02) &&
+                                             NearlyEqual(M10, other.M10) && NearlyEqual(M11, other.M11) && NearlyEqual(M12, other.M12) &&
+                                             NearlyEqual(M20, other.M20) && NearlyEqual(M21, other.M21) && NearlyEqual(M22, other.M22))) &&
                        Projection == other.Projection && NearlyEqual(VerticalExtentAtFocalDistance, other.VerticalExtentAtFocalDistance) &&
                        NearlyEqual(HorizontalExtentAtFocalDistance, other.HorizontalExtentAtFocalDistance) && NearlyEqual(FocalDistance, other.FocalDistance) &&
                        ViewportWidth == other.ViewportWidth && ViewportHeight == other.ViewportHeight;

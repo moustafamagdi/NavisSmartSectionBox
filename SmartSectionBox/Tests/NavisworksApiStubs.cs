@@ -27,6 +27,36 @@ namespace Autodesk.Navisworks.Api
         public double D { get; set; } = 1.0;
     }
 
+    public sealed class Matrix3 : System.IDisposable
+    {
+        private readonly double[,] values = new double[3, 3];
+
+        public Matrix3(Rotation3D rotation)
+        {
+            // The synthetic camera uses A/B/C/D as x/y/z/w. This mirrors the documented
+            // Matrix3(Rotation3D) path without exposing a raw component convention to tests.
+            var x = rotation.A;
+            var y = rotation.B;
+            var z = rotation.C;
+            var w = rotation.D;
+            var length = System.Math.Sqrt(x * x + y * y + z * z + w * w);
+            if (length < 1e-12) { values[0, 0] = values[1, 1] = values[2, 2] = 1.0; return; }
+            x /= length; y /= length; z /= length; w /= length;
+            values[0, 0] = 1 - 2 * (y * y + z * z);
+            values[0, 1] = 2 * (x * y - z * w);
+            values[0, 2] = 2 * (x * z + y * w);
+            values[1, 0] = 2 * (x * y + z * w);
+            values[1, 1] = 1 - 2 * (x * x + z * z);
+            values[1, 2] = 2 * (y * z - x * w);
+            values[2, 0] = 2 * (x * z - y * w);
+            values[2, 1] = 2 * (y * z + x * w);
+            values[2, 2] = 1 - 2 * (x * x + y * y);
+        }
+
+        public double Get(int row, int column) { return values[row, column]; }
+        public void Dispose() { }
+    }
+
     public class ProjectionResult
     {
         public double X { get; set; }

@@ -82,7 +82,14 @@ namespace SmartSectionBox.Interaction
         private static string Calibration(CameraRayCalibration calibration)
         {
             if (calibration == null) return "none";
-            if (!calibration.IsValid) return "invalid:" + (calibration.FailureReason ?? "unknown");
+            if (!calibration.IsValid)
+            {
+                return "invalid:" + (calibration.FailureReason ?? "unknown") +
+                       ";bestMaxPx=" + Number(calibration.MaxErrorPixels) +
+                       ";bestMeanPx=" + Number(calibration.MeanErrorPixels) +
+                       ";scale=" + Number(calibration.ExtentScale) +
+                       ";basis=" + (calibration.QuaternionConvention ?? "unknown");
+            }
             return "valid;maxPx=" + Number(calibration.MaxErrorPixels) +
                    ";meanPx=" + Number(calibration.MeanErrorPixels) +
                    ";scale=" + Number(calibration.ExtentScale) +
