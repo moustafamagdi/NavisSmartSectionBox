@@ -2,10 +2,12 @@
 <ApplicationPackage SchemaVersion="1.0"
                     AutodeskProduct="Naviswork"
                     Name="SmartSectionBox"
-                    Description="Smart Section Box for Autodesk Navisworks 2024"
-                    AppVersion="1.0.0"
+                    Description="Smart Section Box for Autodesk Navisworks 2024 and 2027"
+                    AppVersion="1.1.0"
                     ProductType="Application"
                     SupportedLocales="Enu">
+  <!-- Navisworks managed API assemblies are major-version-specific. Each host loads only the
+       binary compiled against its matching API release. -->
   <Components Description="Autodesk Navisworks 2024">
     <RuntimeRequirements OS="Win64"
                          Platform="NAVMAN|NAVSIM"
@@ -14,6 +16,16 @@
     <ComponentEntry AppName="SmartSectionBox"
                     AppType="ManagedPlugin"
                     ModuleName="./Contents/2024/SmartSectionBox.ADSK.dll"
+                    AppDescription="Smart Section Box" />
+  </Components>
+  <Components Description="Autodesk Navisworks 2027">
+    <RuntimeRequirements OS="Win64"
+                         Platform="NAVMAN|NAVSIM"
+                         SeriesMin="Nw24"
+                         SeriesMax="Nw24" />
+    <ComponentEntry AppName="SmartSectionBox"
+                    AppType="ManagedPlugin"
+                    ModuleName="./Contents/2027/SmartSectionBox.ADSK.dll"
                     AppDescription="Smart Section Box" />
   </Components>
 </ApplicationPackage>

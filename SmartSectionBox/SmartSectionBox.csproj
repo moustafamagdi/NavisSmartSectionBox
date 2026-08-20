@@ -12,9 +12,13 @@
     <Prefer32Bit>false</Prefer32Bit>
     <Deterministic>true</Deterministic>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <NavisworksInstallDir Condition="'$(NavisworksInstallDir)' == ''">C:\Program Files\Autodesk\Navisworks Manage 2024</NavisworksInstallDir>
+    <!-- The managed Navisworks API is major-version-specific. Keep one shared source tree but
+         compile each target against its matching installed Navisworks release. -->
+    <NavisworksRelease Condition="'$(NavisworksRelease)' == '' and ('$(Configuration)' == 'Debug2027' or '$(Configuration)' == 'Release2027')">2027</NavisworksRelease>
+    <NavisworksRelease Condition="'$(NavisworksRelease)' == ''">2024</NavisworksRelease>
+    <NavisworksInstallDir Condition="'$(NavisworksInstallDir)' == ''">C:\Program Files\Autodesk\Navisworks Manage $(NavisworksRelease)</NavisworksInstallDir>
     <PluginBundleDir Condition="'$(PluginBundleDir)' == ''">$(APPDATA)\Autodesk\ApplicationPlugins\SmartSectionBox.bundle</PluginBundleDir>
-    <PluginDeployDir Condition="'$(PluginDeployDir)' == ''">$(PluginBundleDir)\Contents\2024</PluginDeployDir>
+    <PluginDeployDir Condition="'$(PluginDeployDir)' == ''">$(PluginBundleDir)\Contents\$(NavisworksRelease)</PluginDeployDir>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -29,6 +33,21 @@
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug2027|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug2027\</OutputPath>
+    <DefineConstants>DEBUG;TRACE;NAVISWORKS_2027</DefineConstants>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release2027|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release2027\</OutputPath>
+    <DefineConstants>TRACE;NAVISWORKS_2027</DefineConstants>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
@@ -82,7 +101,7 @@
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 
   <Target Name="ValidateNavisworksReferences" BeforeTargets="ResolveAssemblyReferences">
-    <Error Condition="!Exists('$(NavisworksInstallDir)\Autodesk.Navisworks.Api.dll')" Text="Navisworks 2024 API assembly not found. Set the NavisworksInstallDir MSBuild property to the Navisworks Manage or Simulate 2024 installation folder." />
+    <Error Condition="!Exists('$(NavisworksInstallDir)\Autodesk.Navisworks.Api.dll')" Text="Navisworks $(NavisworksRelease) API assembly not found. Set the NavisworksInstallDir MSBuild property to the Navisworks Manage or Simulate $(NavisworksRelease) installation folder." />
   </Target>
   <Target Name="DeployPlugin" AfterTargets="Build" Condition="'$(DeployPlugin)' == 'true'">
     <MakeDir Directories="$(PluginBundleDir);$(PluginDeployDir)" />

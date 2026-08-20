@@ -42,43 +42,50 @@ The implementation is grounded in the **official Navisworks 2024 SDK**, which wa
 
 ## Build
 
-Install **Navisworks Manage 2024** or **Navisworks Simulate 2024** and Visual Studio 2022 with the **.NET desktop development** workload.
+Install **Navisworks Manage or Simulate 2024 or 2027** and Visual Studio 2022 with the **.NET desktop development** workload. Navisworks managed API assemblies are major-version-specific, so the solution compiles the shared source against a separate host reference for each supported release.
 
 1. Open `SmartSectionBox.sln` in Visual Studio 2022.
-2. Confirm `SmartSectionBox\SmartSectionBox.csproj` has the correct `NavisworksInstallDir`. By default it targets:
+2. Select the configuration matching the installed Navisworks host:
+
+   | Installed host | Visual Studio configuration | Default API folder | Output folder |
+   |---|---|---|---|
+   | Navisworks 2024 | `Release | Any CPU` | `C:\Program Files\Autodesk\Navisworks Manage 2024` | `bin\Release` |
+   | Navisworks 2027 | `Release2027 | Any CPU` | `C:\Program Files\Autodesk\Navisworks Manage 2027` | `bin\Release2027` |
+
+3. For a Simulate installation or a custom directory, set `NavisworksInstallDir` to the matching host folder, for example:
 
    ```text
-   C:\Program Files\Autodesk\Navisworks Manage 2024
+   /p:NavisworksInstallDir="C:\Program Files\Autodesk\Navisworks Simulate 2027"
    ```
 
-   For Simulate, set an MSBuild property such as:
-
-   ```text
-   /p:NavisworksInstallDir="C:\Program Files\Autodesk\Navisworks Simulate 2024"
-   ```
-
-3. Build **Release | Any CPU**. The Navisworks API references deliberately set `Private=False`; the host supplies the runtime assemblies.
-4. To deploy automatically during a local build, use:
+4. Build the selected configuration. The API references deliberately set `Private=False`; the Navisworks host supplies the runtime assemblies. Never compile the 2027 configuration using the 2024 API DLL.
+5. To deploy automatically during a local build, add:
 
    ```text
    /p:DeployPlugin=true
    ```
 
-   This creates the Navisworks 2024 application bundle below:
+   The configuration copies the matching DLL to the version-specific folder below:
 
    ```text
    %AppData%\Autodesk\ApplicationPlugins\SmartSectionBox.bundle\
    ├── PackageContents.xml
-   └── Contents\2024\SmartSectionBox.ADSK.dll
+   └── Contents\
+       ├── 2024\SmartSectionBox.ADSK.dll
+       └── 2027\SmartSectionBox.ADSK.dll
    ```
 
-   The bundle manifest uses `AppType="ManagedPlugin"`, `Platform="NAVMAN|NAVSIM"`, and Navisworks 2024 series `Nw21`. Override `PluginBundleDir` for a machine-wide deployment, such as `C:\ProgramData\Autodesk\ApplicationPlugins\SmartSectionBox.bundle`.
+   The manifest uses `AppType="ManagedPlugin"`, `Platform="NAVMAN|NAVSIM"`, and separate runtime series (`Nw21` for 2024 and `Nw24` for 2027). Override `PluginBundleDir` for a machine-wide deployment, such as `C:\ProgramData\Autodesk\ApplicationPlugins\SmartSectionBox.bundle`.
 
 ## Install and Activate
 
-Use the checked-in [`Deployment/SmartSectionBox.bundle`](Deployment/SmartSectionBox.bundle) template rather than copying a DLL to a legacy product `Plugins` folder. Copy the Release DLL into `Contents\2024`, retain `PackageContents.xml` at the bundle root, then fully restart Navisworks. See [`Deployment/README.md`](Deployment/README.md) for the exact folder tree and diagnostics. Once the bundle is discovered, locate **Smart Section Box** in the Navisworks plug-in/ribbon command list. The command opens the minimal dock pane. Activation adopts an existing native Box section, or creates a box around currently selected elements; it does not create a model-wide box.
+Use the checked-in [`Deployment/SmartSectionBox.bundle`](Deployment/SmartSectionBox.bundle) template rather than copying a DLL to a legacy product `Plugins` folder. Place every available release-specific DLL in its matching `Contents` version folder, retain `PackageContents.xml` at the bundle root, then fully restart Navisworks. See [`Deployment/README.md`](Deployment/README.md) for the exact folder tree and diagnostics. Once the bundle is discovered, locate **Smart Section Box** in the Navisworks plug-in/ribbon command list. The command opens the minimal dock pane. Activation adopts an existing native Box section, or creates a box around currently selected elements; it does not create a model-wide box.
 
 Click **Activate Smart Section Box** after selecting elements, or after creating a native Navisworks Box section. The add-in preserves an existing native box when present; otherwise, it emits the verified `ClipPlaneSet`/`OrientedBox3D` schema to fit the selected elements. If the host rejects a write, inspect the add-in log before retrying.
+
+### Navisworks 2027 Host Validation
+
+After building `Release2027`, install the bundle with the DLL in `Contents\\2027` and start Navisworks Manage or Simulate 2027. Confirm that the **Smart Section Box** command appears, activation can adopt an existing native Box section, and `Record face-pull diagnostics` reports `picker=ray` and `calibration=valid` during a drag. Test Perspective and Orthographic views, then drag every visible Min/Max X, Y, and Z face of both an axis-aligned and a rotated native box. Confirm that the selected oriented face moves while its opposite face remains fixed. This host test is required because the proprietary 2027 API assembly and renderer are unavailable in the Linux validation workspace.
 
 ## Direct Face Dragging Workflow
 

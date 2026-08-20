@@ -45,3 +45,14 @@ The current sectioning reference confirms that Navisworks box mode is controlled
 ## Exact box JSON schema observed
 
 The full-resolution box-mode illustration shows the concrete payload shape used by Navisworks: root `{ "Type": "ClipPlaneSet", "Version": 1, "OrientedBox": { "Type": "OrientedBox3D", "Version": 1, "Box": [[minX,minY,minZ],[maxX,maxY,maxZ]], "Rotation": [x,y,z] }, "Enable": true }`. The root activation property is **`Enable`** (not `Enabled`), and both the root and `OrientedBox` include `Type` and `Version`. The fallback encoder must emit this schema exactly.
+
+## Navisworks 2027 compatibility verification
+
+The official Autodesk Navisworks 2027 SDK was downloaded and inspected locally. Its managed plug-in sample targets **.NET Framework 4.8** and references the host-installed `Autodesk.Navisworks.Api.dll` with `Private=False`. The 2027 API reference identifies that assembly as version **24.0.0.0**. It retains the `ToolPlugin.MouseMove(View, KeyModifiers, int, int, double)` signature and `View.TrySetClippingPlanes(string)` used by Smart Section Box. The 2027 target can therefore compile the shared source without an API-specific source fork.
+
+Autodesk’s publisher guidance states that Navisworks managed API assemblies are compatible only within one major release. The bundle consequently ships separate 2024 (`Nw21`) and 2027 (`Nw24`) managed components, each expected to contain a DLL compiled against the matching host API. The `Nw24` series assignment follows Autodesk’s documented consecutive mapping of 2025 to `Nw22` and 2026 to `Nw23`; host installation remains the final bundle-discovery validation point.
+
+The extracted official 2027 SDK is retained locally under `/home/ubuntu/navisworks-sdk-2027` for reproducibility. The installer was extracted for inspection only and was not executed.
+
+[8]: https://aps.autodesk.com/developer/overview/navisworks-api "Navisworks API and SDK 2027 — Autodesk Platform Services"
+[9]: https://aps.autodesk.com/marketplace/publisher-center/navisworks-publisher-guidelines "Navisworks publisher guidelines — Autodesk Platform Services"
