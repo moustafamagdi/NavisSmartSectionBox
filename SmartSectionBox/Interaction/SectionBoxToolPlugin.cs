@@ -192,6 +192,40 @@ namespace SmartSectionBox.Interaction
             return CursorManager.GetCursor(dragController.Hover, dragController.State);
         }
 
+        /// <summary>
+        /// Releases this exclusive custom tool safely. An incomplete live drag is cancelled so the
+        /// original section box is restored before the runtime selects Navisworks' normal tool.
+        /// </summary>
+        public void CancelActiveInteraction(View view)
+        {
+            try
+            {
+                if (dragController != null && dragController.State == DragState.Dragging)
+                {
+                    var face = dragController.DraggedFaceId;
+                    var restoredCoordinate = dragController.InitialCoordinate;
+                    var restored = dragController.Cancel();
+                    InteractionDiagnostics.LogDragCancel(face, restoredCoordinate);
+                    if (!restored) Logger.Warn("Smart Section Box drag could not be restored while stopping the tool.");
+                }
+
+                ownsMouseSequence = false;
+                ClearHoverHit();
+                if (dragController != null) dragController.Reset();
+                PublishHover(FaceHoverState.None);
+                if (view != null) view.RequestDelayedRedraw(ViewRedrawRequests.Render);
+            }
+            catch (Exception ex)
+            {
+                // The standard Navisworks tool must still be restored by the runtime even if an
+                // interaction cleanup error occurs.
+                Logger.Error("Unable to cancel the active Smart Section Box interaction.", ex);
+                ownsMouseSequence = false;
+                ClearHoverHit();
+                PublishHover(FaceHoverState.None);
+            }
+        }
+
         private void RememberHoverHit(FaceHitResult hit, int x, int y)
         {
             lastHoverHit = hit;

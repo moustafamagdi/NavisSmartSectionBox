@@ -3,6 +3,7 @@ using Autodesk.Navisworks.Api;
 using Autodesk.Navisworks.Api.Plugins;
 using SmartSectionBox.Core;
 using SmartSectionBox.Infrastructure;
+using SmartSectionBox.Interaction;
 
 namespace SmartSectionBox.Plugin
 {
@@ -13,6 +14,18 @@ namespace SmartSectionBox.Plugin
 
         public static SectionBoxService Service => service;
         public static bool LiveUpdates { get; set; } = true;
+        public static event EventHandler ToolStateChanged;
+
+        public static bool IsFacePullActive
+        {
+            get
+            {
+                var document = Application.MainDocument;
+                return document != null && document.Tool != null &&
+                       document.Tool.Value == Tool.CustomToolPlugin &&
+                       string.Equals(document.Tool.CustomToolPluginId, FacePullToolPluginId, StringComparison.Ordinal);
+            }
+        }
 
         /// <summary>
         /// Custom ToolPlugin modes are exclusive in Navisworks. Invoke this after a user
@@ -25,27 +38,76 @@ namespace SmartSectionBox.Plugin
                 var document = Application.MainDocument;
                 if (document == null || document.IsClear)
                 {
-                    message = "Open a model before enabling Face Pull.";
+                    message = "Open a model before starting Smart Section Box.";
                     return false;
                 }
 
                 var record = Application.Plugins.FindPlugin(FacePullToolPluginId) as ToolPluginRecord;
                 if (record == null || !record.IsEnabled)
                 {
-                    message = "The Smart Section Box Face Pull tool is unavailable.";
+                    message = "The Smart Section Box tool is unavailable.";
                     return false;
                 }
 
                 document.Tool.SetCustomToolPlugin(record.LoadPlugin());
-                message = "Smart Section Box is active. Drag a camera-facing face; orbit the view to reach another side.";
+                PublishToolStateChanged();
+                message = "Tool started — drag a visible face.";
                 return true;
             }
             catch (Exception ex)
             {
                 Logger.Error("Unable to activate the Smart Section Box Face Pull tool.", ex);
-                message = "Unable to activate Face Pull. See the Smart Section Box log.";
+                message = "Unable to start the tool. See the Smart Section Box log.";
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Cancels a pending face drag, then restores Navisworks' standard Select tool. Passing
+        /// null to SetCustomToolPlugin is unsupported and throws, so a standard Tool value is
+        /// deliberately assigned instead.
+        /// </summary>
+        public static bool TryDeactivateFacePull(out string message)
+        {
+            try
+            {
+                var document = Application.MainDocument;
+                if (document == null || document.IsClear)
+                {
+                    PublishToolStateChanged();
+                    message = "Smart Section Box is stopped.";
+                    return true;
+                }
+
+                if (!IsFacePullActive)
+                {
+                    PublishToolStateChanged();
+                    message = "Smart Section Box is already stopped.";
+                    return true;
+                }
+
+                var record = Application.Plugins.FindPlugin(FacePullToolPluginId) as ToolPluginRecord;
+                var facePullTool = record == null ? null : record.LoadPlugin() as SectionBoxToolPlugin;
+                if (facePullTool != null) facePullTool.CancelActiveInteraction(document.ActiveView);
+
+                document.Tool.Value = Tool.Select;
+                if (document.ActiveView != null) document.ActiveView.RequestDelayedRedraw(ViewRedrawRequests.Render);
+                PublishToolStateChanged();
+                message = "Tool stopped — normal Navisworks selection restored.";
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Unable to deactivate the Smart Section Box Face Pull tool.", ex);
+                message = "Unable to stop the tool. See the Smart Section Box log.";
+                return false;
+            }
+        }
+
+        private static void PublishToolStateChanged()
+        {
+            var handler = ToolStateChanged;
+            if (handler != null) handler(null, EventArgs.Empty);
         }
 
         public static bool TryStartFromExistingBoxOrSelection(out string message)
@@ -61,7 +123,7 @@ namespace SmartSectionBox.Plugin
 
             var view = Application.MainDocument == null ? null : Application.MainDocument.ActiveView;
             if (view != null) view.RequestDelayedRedraw(ViewRedrawRequests.Render);
-            message = message + " " + activationMessage;
+            message = activationMessage;
             return true;
         }
     }

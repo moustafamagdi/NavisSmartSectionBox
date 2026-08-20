@@ -81,7 +81,7 @@ Install **Navisworks Manage or Simulate 2024 or 2027** and Visual Studio 2022 wi
 
 Use the checked-in [`Deployment/SmartSectionBox.bundle`](Deployment/SmartSectionBox.bundle) template rather than copying a DLL to a legacy product `Plugins` folder. Place every available release-specific DLL in its matching `Contents` version folder, retain `PackageContents.xml` at the bundle root, then fully restart Navisworks. See [`Deployment/README.md`](Deployment/README.md) for the exact folder tree and diagnostics. Once the bundle is discovered, locate **Smart Section Box** in the Navisworks plug-in/ribbon command list. The command opens the minimal dock pane. Activation adopts an existing native Box section, or creates a box around currently selected elements; it does not create a model-wide box.
 
-Click **Activate Smart Section Box** after selecting elements, or after creating a native Navisworks Box section. The add-in preserves an existing native box when present; otherwise, it emits the verified `ClipPlaneSet`/`OrientedBox3D` schema to fit the selected elements. If the host rejects a write, inspect the add-in log before retrying.
+Click **Start** after selecting elements, or after creating a native Navisworks Box section. The add-in preserves an existing native box when present; otherwise, it emits the verified `ClipPlaneSet`/`OrientedBox3D` schema to fit the selected elements. If the host rejects a write, inspect the add-in log before retrying.
 
 ### Navisworks 2027 Host Validation
 
@@ -92,10 +92,11 @@ After building `Release2027`, install the bundle with the DLL in `Contents\\2027
 The dock pane is intentionally a minimal launcher. All section-box editing happens directly in the 3D viewport.
 
 1. Either select one or more model elements, **or** create a standard Box section through Navisworks first.
-2. Run **Smart Section Box** and click **Activate Smart Section Box**. When a native box exists, the tool adopts it unchanged. When no native box exists, the tool fits a new box to the current element selection. If neither condition is met, it gives an instruction and does not create a model-wide box.
+2. Run **Smart Section Box** and click **Start**. When a native box exists, the tool adopts it unchanged. When no native box exists, the tool fits a new box to the current element selection. If neither condition is met, it gives an instruction and does not create a model-wide box.
 3. Navisworks remains the internal clipping engine. To preserve viewport performance on large federated models, Smart Section Box does **not** draw a custom box overlay. The compact dock pane has one contextual status line: it reports the hovered face as `Face +X — drag to move`, or otherwise shows the current activation status, without adding viewport rendering.
 4. Direct interaction uses the current section-box geometry internally. Each press selects only the nearest valid **camera-facing** face. The tool never selects a hidden or underlay face. To edit another side, orbit the Navisworks view until that face is visible and camera-facing, then drag it normally.
 5. Hold **Shift** for the configurable coarse multiplier (default 2.0). Release to apply the final state immediately. Press **Esc** instead to restore the state at mouse-down.
+6. Click **Stop** at any time to cancel an unfinished drag, restore the standard Navisworks **Select** tool, and release the Smart Section Box mouse interaction. Closing or hiding the dock pane performs the same safe stop automatically.
 
 > The native Navisworks box is deliberately not placed into Move mode after activation, and no custom wireframe is rendered. This performance-focused mode updates clipping without additional viewport drawing.
 
@@ -186,7 +187,7 @@ Validate the compiled plug-in in an installed Navisworks 2024 host before produc
 | The command does not appear | Confirm the DLL is in a Navisworks 2024 plug-in folder and that it was compiled against the matching Manage/Simulate 2024 API DLL. |
 | Build fails resolving `Autodesk.Navisworks.Api.dll` | Set `NavisworksInstallDir` to the installed product folder. |
 | First box creation fails | Select valid model elements, activate the tool, then inspect the add-in log if Navisworks rejects the verified `ClipPlaneSet`/`OrientedBox3D` payload. |
-| A face does not capture | Confirm an element is selected or a native Navisworks Box section already exists, then click **Activate Smart Section Box**. Orbit the view until the intended box face is visible and camera-facing, then click well inside that face. |
+| A face does not capture | Confirm an element is selected or a native Navisworks Box section already exists, then click **Start**. Orbit the view until the intended box face is visible and camera-facing, then click well inside that face. |
 | Navigation is blocked | Verify a mouse button was released. Press **Esc** to cancel the drag transaction. |
 | UI and viewport differ | Reactivate the tool to adopt the current native box, then inspect the diagnostics log if clipping does not match the current section-box state. |
 | The pane is clipped or controls overlap | Deploy the current DLL, delete the prior `SmartSectionBox.bundle`, then recreate the bundle from `Deployment/SmartSectionBox.bundle`. The revised pane has no sliders and uses a responsive host. |

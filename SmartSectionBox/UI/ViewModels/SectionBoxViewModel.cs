@@ -16,9 +16,11 @@ namespace SmartSectionBox.UI.ViewModels
     public sealed class SectionBoxViewModel : INotifyPropertyChanged, IDisposable
     {
         private readonly SectionBoxService service;
+        private readonly DelegateCommand startCommand;
+        private readonly DelegateCommand stopCommand;
         private bool disposed;
         private bool interactionDiagnosticsEnabled;
-        private string status = "Ready — activate, then drag a visible face.";
+        private string status = "Ready — click Start, then drag a visible face.";
         private string hoverStatus;
 
         public SectionBoxViewModel(SectionBoxService service)
@@ -26,12 +28,15 @@ namespace SmartSectionBox.UI.ViewModels
             this.service = service ?? throw new ArgumentNullException(nameof(service));
             this.service.StatusChanged += OnStatusChanged;
             SectionBoxToolPlugin.HoverChanged += OnHoverChanged;
-            ActivateCommand = new DelegateCommand(_ => Activate());
+            SmartSectionBoxRuntime.ToolStateChanged += OnToolStateChanged;
+            startCommand = new DelegateCommand(_ => Start(), _ => !SmartSectionBoxRuntime.IsFacePullActive);
+            stopCommand = new DelegateCommand(_ => Stop(), _ => SmartSectionBoxRuntime.IsFacePullActive);
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
 
-        public ICommand ActivateCommand { get; }
+        public ICommand StartCommand => startCommand;
+        public ICommand StopCommand => stopCommand;
 
         public string HoverStatus
         {
@@ -67,21 +72,56 @@ namespace SmartSectionBox.UI.ViewModels
         public void Dispose()
         {
             if (disposed) return;
+            string ignored;
+            SmartSectionBoxRuntime.TryDeactivateFacePull(out ignored);
             disposed = true;
             service.StatusChanged -= OnStatusChanged;
             SectionBoxToolPlugin.HoverChanged -= OnHoverChanged;
+            SmartSectionBoxRuntime.ToolStateChanged -= OnToolStateChanged;
         }
 
-        private void Activate()
+        private void Start()
         {
             string message;
             SmartSectionBoxRuntime.TryStartFromExistingBoxOrSelection(out message);
+            HoverStatus = null;
             Status = message;
+            RefreshCommandStates();
+        }
+
+        private void Stop()
+        {
+            string message;
+            SmartSectionBoxRuntime.TryDeactivateFacePull(out message);
+            HoverStatus = null;
+            Status = message;
+            RefreshCommandStates();
+        }
+
+        private void RefreshCommandStates()
+        {
+            startCommand.RaiseCanExecuteChanged();
+            stopCommand.RaiseCanExecuteChanged();
         }
 
         private void OnStatusChanged(object sender, string message)
         {
             Status = message;
+        }
+
+        private void OnToolStateChanged(object sender, EventArgs e)
+        {
+            var dispatcher = Application.Current == null ? null : Application.Current.Dispatcher;
+            if (dispatcher != null && !dispatcher.CheckAccess())
+            {
+                dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (!disposed) RefreshCommandStates();
+                }));
+                return;
+            }
+
+            if (!disposed) RefreshCommandStates();
         }
 
         private void OnHoverChanged(object sender, FaceHoverState hover)

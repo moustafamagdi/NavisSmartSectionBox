@@ -41,7 +41,7 @@ namespace SmartSectionBox.Plugin
             {
                 IsVisible = true,
                 IsEnabled = !Application.IsAutomated,
-                IsChecked = Application.MainDocument != null && Application.MainDocument.Tool.CustomToolPluginId == ToolPluginId
+                IsChecked = SmartSectionBoxRuntime.IsFacePullActive
             };
             return state;
         }

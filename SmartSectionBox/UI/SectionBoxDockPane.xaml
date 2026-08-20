@@ -16,7 +16,10 @@
     </UserControl.Resources>
 
     <StackPanel Margin="10" HorizontalAlignment="Left" VerticalAlignment="Top">
-        <Button Content="Activate Smart Section Box" Command="{Binding ActivateCommand}" />
+        <StackPanel Orientation="Horizontal">
+            <Button Content="Start" Command="{Binding StartCommand}" Margin="0,0,6,0" />
+            <Button Content="Stop" Command="{Binding StopCommand}" />
+        </StackPanel>
         <TextBlock Text="{Binding DisplayStatus}" Foreground="#0B5F93" FontSize="11"
                    TextWrapping="Wrap" Margin="2,7,2,0" />
         <CheckBox Content="Record diagnostics" IsChecked="{Binding InteractionDiagnosticsEnabled, Mode=TwoWay}"

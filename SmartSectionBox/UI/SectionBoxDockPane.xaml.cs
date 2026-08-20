@@ -1,5 +1,3 @@
-using System;
-using System.Windows;
 using System.Windows.Controls;
 using SmartSectionBox.Plugin;
 using SmartSectionBox.UI.ViewModels;
@@ -15,12 +13,14 @@ namespace SmartSectionBox.UI
             InitializeComponent();
             viewModel = new SectionBoxViewModel(SmartSectionBoxRuntime.Service);
             DataContext = viewModel;
-            Unloaded += OnUnloaded;
         }
 
-        private void OnUnloaded(object sender, RoutedEventArgs e)
+        /// <summary>
+        /// Called only from DockPanePlugin.DestroyControlPane. A visibility transition must not
+        /// dispose the view model because Navisworks can retain and later show the same pane.
+        /// </summary>
+        public void DisposeViewModel()
         {
-            Unloaded -= OnUnloaded;
             viewModel.Dispose();
         }
     }

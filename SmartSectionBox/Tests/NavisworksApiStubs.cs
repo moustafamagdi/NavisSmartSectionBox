@@ -8,6 +8,7 @@ namespace Autodesk.Navisworks.Api
     public enum Cursor { Unhandled, Handled, HyperHand }
     public enum ViewRedrawRequests { Render }
     public enum ViewpointProjection { Perspective, Orthographic }
+    public enum Tool { None, Select, CustomToolPlugin }
 
     public class Point3D
     {
@@ -83,7 +84,11 @@ namespace Autodesk.Navisworks.Api
     public class DocumentTool
     {
         public string CustomToolPluginId { get; set; }
-        public void SetCustomToolPlugin(object plugin) { }
+        public Tool Value { get; set; } = Tool.Select;
+        public void SetCustomToolPlugin(Autodesk.Navisworks.Api.Plugins.ToolPlugin plugin)
+        {
+            Value = Tool.CustomToolPlugin;
+        }
     }
     public class Document
     {
@@ -138,8 +143,20 @@ namespace Autodesk.Navisworks.Api.Plugins
         public object LoadPlugin() { return LoadedPlugin; }
     }
 
-    public class ToolPluginRecord : PluginRecord { }
+    public class ToolPluginRecord : PluginRecord
+    {
+        public new ToolPlugin LoadPlugin() { return LoadedPlugin as ToolPlugin; }
+    }
     public class DockPanePluginRecord : PluginRecord { }
+
+    public class DockPanePlugin
+    {
+        public bool Visible { get; set; }
+        public virtual System.Windows.Forms.Control CreateControlPane() { return null; }
+        public virtual void DestroyControlPane(System.Windows.Forms.Control pane) { }
+        public virtual void OnVisibleChanged() { }
+        public void ActivatePane() { }
+    }
 
     public class ToolPlugin
     {
