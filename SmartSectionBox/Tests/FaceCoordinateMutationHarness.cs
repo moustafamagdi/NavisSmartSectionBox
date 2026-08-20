@@ -46,6 +46,10 @@ internal static class FaceCoordinateMutationHarness
             id + " must translate exactly along its outward world normal.");
         AssertVector(oppositeAfter.Center, oppositeBefore.Center,
             Opposite(id) + " must remain stationary while moving " + id + ".");
+        var oppositePlaneBefore = Vector3.Dot(oppositeBefore.Center, before.Normal.Normalized());
+        var oppositePlaneAfter = Vector3.Dot(oppositeAfter.Center, before.Normal.Normalized());
+        Assert(NearlyEqual(oppositePlaneAfter - oppositePlaneBefore, 0),
+            Opposite(id) + " must report zero opposite-face world-plane drift.");
         for (var i = 0; i < before.Corners.Length; i++)
         {
             AssertVector(after.Corners[i] - before.Corners[i], before.Normal.Normalized() * outwardDistance,

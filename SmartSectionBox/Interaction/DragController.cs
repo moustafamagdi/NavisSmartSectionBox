@@ -35,6 +35,8 @@ namespace SmartSectionBox.Interaction
         private Vector3 dragReferencePlaneNormal;
         private Vector3 dragStartPoint;
         private CameraRayCalibration dragCalibration;
+        private Vector3 draggedOutwardNormal;
+        private double oppositeFacePlaneAtStart;
 
         public DragController(SectionBoxService service, CameraProjection projection)
             : this(service, projection, new CameraRayBuilder())
@@ -59,6 +61,15 @@ namespace SmartSectionBox.Interaction
         public int MouseStartX => mouseStartX;
         public int MouseStartY => mouseStartY;
         public ScreenPoint ScreenNormal => screenNormal;
+        public double ProjectedNormalLength => Math.Sqrt(screenNormal.X * screenNormal.X + screenNormal.Y * screenNormal.Y);
+        public double OppositeFacePlaneDrift
+        {
+            get
+            {
+                if (draggedFace == null || workingState == null || draggedOutwardNormal.Length < 1e-12) return 0;
+                return GetOppositeFacePlane(workingState, draggedFace.Id, draggedOutwardNormal) - oppositeFacePlaneAtStart;
+            }
+        }
         public bool UsesCalibratedRayDrag => rayDragActive;
         public CameraRayCalibration DragCalibration => dragCalibration;
         public double InitialCoordinate => draggedFace == null || initialState == null ? 0 : initialState.GetFaceCoordinate(draggedFace.Id);
@@ -88,6 +99,8 @@ namespace SmartSectionBox.Interaction
             initialState = state.Clone();
             workingState = state.Clone();
             draggedFace = hit.Face;
+            draggedOutwardNormal = draggedFace.Normal.Normalized();
+            oppositeFacePlaneAtStart = GetOppositeFacePlane(initialState, draggedFace.Id, draggedOutwardNormal);
             mouseStartX = x;
             mouseStartY = y;
             screenNormal = projection.GetProjectedNormalDirection(draggedFace, view);
@@ -140,6 +153,32 @@ namespace SmartSectionBox.Interaction
             draggedFace = null;
             rayDragActive = false;
             dragCalibration = null;
+            draggedOutwardNormal = new Vector3(0, 0, 0);
+            oppositeFacePlaneAtStart = 0;
+        }
+
+        private static double GetOppositeFacePlane(SectionBoxState state, SectionBoxFaceId draggedFaceId, Vector3 outwardNormal)
+        {
+            var oppositeId = OppositeFaceId(draggedFaceId);
+            foreach (var face in SectionBoxMath.GetFaces(state))
+            {
+                if (face.Id == oppositeId) return Vector3.Dot(face.Center, outwardNormal);
+            }
+            return 0;
+        }
+
+        private static SectionBoxFaceId OppositeFaceId(SectionBoxFaceId faceId)
+        {
+            switch (faceId)
+            {
+                case SectionBoxFaceId.MinX: return SectionBoxFaceId.MaxX;
+                case SectionBoxFaceId.MaxX: return SectionBoxFaceId.MinX;
+                case SectionBoxFaceId.MinY: return SectionBoxFaceId.MaxY;
+                case SectionBoxFaceId.MaxY: return SectionBoxFaceId.MinY;
+                case SectionBoxFaceId.MinZ: return SectionBoxFaceId.MaxZ;
+                case SectionBoxFaceId.MaxZ: return SectionBoxFaceId.MinZ;
+                default: throw new ArgumentOutOfRangeException(nameof(faceId));
+            }
         }
 
         private bool TryBeginRayDrag(FaceHitResult hit, int x, int y, View view)
@@ -218,14 +257,15 @@ namespace SmartSectionBox.Interaction
             var dy = y - mouseStartY;
             var axisLength = Math.Sqrt(screenNormal.X * screenNormal.X + screenNormal.Y * screenNormal.Y);
             double signedPixels;
-            if (axisLength >= 2.0)
+            if (axisLength >= 6.0)
             {
                 signedPixels = (dx * screenNormal.X + dy * screenNormal.Y) / axisLength;
             }
             else
             {
-                // Looking directly at a face makes its normal project to a point. Use a stable
-                // screen-up fallback while preserving camera-scaled world sensitivity.
+                // A truly head-on face has no reliable projected normal. The adaptive
+                // projection normally expands weak edge-on axes above this threshold; if it
+                // cannot, use a stable screen-up fallback instead of amplifying pixel noise.
                 signedPixels = -dy;
             }
 

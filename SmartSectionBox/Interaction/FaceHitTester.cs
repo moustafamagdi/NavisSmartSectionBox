@@ -15,6 +15,7 @@ namespace SmartSectionBox.Interaction
         public double AverageDepth { get; set; }
         public double DistanceToPolygon { get; set; }
         public bool IsInsidePolygon { get; set; }
+        public bool IsEdgeToleranceCapture { get; set; }
         public bool IsFrontFacing { get; set; }
         public double RayDistance { get; set; }
         public Vector3 HitPoint { get; set; }
@@ -30,6 +31,7 @@ namespace SmartSectionBox.Interaction
         public FaceHitResult Selected { get; set; }
         public int SelectedIndex { get; set; } = -1;
         public bool UsedRayPicker { get; set; }
+        public bool UsedEdgeToleranceOnly { get; set; }
         public CameraRayCalibration Calibration { get; set; }
     }
 
@@ -172,13 +174,14 @@ namespace SmartSectionBox.Interaction
 
         private FaceHitProbe ProbeProjectedPolygon(SectionBoxState state, View view, int mouseX, int mouseY, double edgeTolerancePixels)
         {
-            var candidates = new List<FaceHitResult>();
+            var interiorCandidates = new List<FaceHitResult>();
+            var edgeCandidates = new List<FaceHitResult>();
             var viewpoint = view.CreateViewpointCopy();
             if (viewpoint == null || viewpoint.Position == null)
             {
                 return new FaceHitProbe
                 {
-                    Candidates = candidates,
+                    Candidates = interiorCandidates,
                     UsedRayPicker = false
                 };
             }
@@ -196,19 +199,26 @@ namespace SmartSectionBox.Interaction
                 var distance = inside ? 0 : DistanceToPolygon(point, polygon);
                 if (!inside && distance > edgeTolerancePixels) continue;
 
-                candidates.Add(new FaceHitResult
+                var candidate = new FaceHitResult
                 {
                     Face = face,
                     Polygon = polygon,
                     AverageDepth = polygon.Average(p => p.Depth),
                     DistanceToPolygon = distance,
                     IsInsidePolygon = inside,
+                    IsEdgeToleranceCapture = !inside,
                     IsFrontFacing = isFrontFacing,
                     PickerMode = "fallback-2d"
-                });
+                };
+                if (inside) interiorCandidates.Add(candidate);
+                else edgeCandidates.Add(candidate);
             }
 
-            var ordered = candidates
+            // The tolerance is a recovery band for near-misses, not a competing pick surface.
+            // Once the cursor is inside any camera-facing face, exclude tolerance-only faces
+            // entirely so a near edge cannot steal the direct interior selection.
+            var activeCandidates = interiorCandidates.Count > 0 ? interiorCandidates : edgeCandidates;
+            var ordered = activeCandidates
                 .OrderBy(candidate => candidate.DistanceToPolygon)
                 .ThenBy(candidate => candidate.AverageDepth)
                 .ThenBy(candidate => candidate.Face.Id)
@@ -218,7 +228,8 @@ namespace SmartSectionBox.Interaction
                 Candidates = ordered,
                 Selected = ordered.FirstOrDefault(),
                 SelectedIndex = ordered.Count == 0 ? -1 : 0,
-                UsedRayPicker = false
+                UsedRayPicker = false,
+                UsedEdgeToleranceOnly = interiorCandidates.Count == 0 && edgeCandidates.Count > 0
             };
         }
 

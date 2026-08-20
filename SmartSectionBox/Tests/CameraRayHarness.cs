@@ -11,6 +11,7 @@ internal static class CameraRayHarness
         {
             VerifyPerspectiveRoundTrip();
             VerifyOrthographicRoundTrip();
+            VerifyAdaptiveFallbackProjectedNormal();
             VerifyObbFacePickingAtCivilCoordinates();
             VerifyCalibrationFailureFallsBackSafely();
             VerifyAbsoluteRayDrag();
@@ -48,7 +49,49 @@ internal static class CameraRayHarness
         AssertRoundTrip(view, ray, 1010, 110, 30.0, "Orthographic ray must project back to its requested pixel.");
     }
 
-    private static void VerifyObbFacePickingAtCivilCoordinates()
+            private static void VerifyAdaptiveFallbackProjectedNormal()
+        {
+            var view = SyntheticView.Perspective(new Point3D(0, 0, 100), 0.0, 50.0, 40.0, 60.0);
+            var state = new SectionBoxState
+            {
+                MinX = -10,
+                MaxX = 10,
+                MinY = -10,
+                MaxY = 10,
+                MinZ = 0,
+                MaxZ = 20,
+                RotationY = 0.5,
+                Enabled = true
+            };
+            SectionBoxFace maxZ = null;
+            foreach (var face in SectionBoxMath.GetFaces(state))
+            {
+                if (face.Id == SectionBoxFaceId.MaxZ) maxZ = face;
+            }
+            Assert(maxZ != null, "The weak normal test must find MaxZ.");
+
+            var edgeA = (maxZ.Corners[1] - maxZ.Corners[0]).Length;
+            var edgeB = (maxZ.Corners[2] - maxZ.Corners[1]).Length;
+            var originalStep = Math.Max(0.001, Math.Min(edgeA, edgeB) * 0.15);
+            var centre = view.ProjectPoint(new Point3D(maxZ.Center.X, maxZ.Center.Y, maxZ.Center.Z), false, false);
+            var endpoint = view.ProjectPoint(new Point3D(
+                maxZ.Center.X + maxZ.Normal.X * originalStep,
+                maxZ.Center.Y + maxZ.Normal.Y * originalStep,
+                maxZ.Center.Z + maxZ.Normal.Z * originalStep), false, false);
+            var originalX = endpoint.X - centre.X;
+            var originalY = endpoint.Y - centre.Y;
+            var originalLength = Math.Sqrt(originalX * originalX + originalY * originalY);
+
+            var adaptive = new CameraProjection().GetProjectedNormalDirection(maxZ, view);
+            var adaptiveLength = Math.Sqrt(adaptive.X * adaptive.X + adaptive.Y * adaptive.Y);
+            Assert(adaptiveLength > originalLength * 3.0,
+                "Adaptive fallback projection must strengthen a weak normal using a larger local sample.");
+            Assert(adaptive.X * originalX + adaptive.Y * originalY > 0,
+                "Adaptive fallback projection must preserve the initial projected normal direction.");
+        }
+
+        private static void VerifyObbFacePickingAtCivilCoordinates()
+
     {
         var baseX = 2440000.0;
         var baseY = 9080000.0;

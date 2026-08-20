@@ -63,17 +63,53 @@ namespace SmartSectionBox.Interaction
 
         public ScreenPoint GetProjectedNormalDirection(SectionBoxFace face, View view)
         {
+            if (face == null || face.Corners == null || face.Corners.Length < 3) return new ScreenPoint(0, 0, 0);
             var centre = WorldToScreen(face.Center, view);
+            if (!centre.HasValue) return new ScreenPoint(0, 0, 0);
+
             // The previous calculation used the distance from the world origin, which can be
             // millions of units in civil models. That projects past the camera and can invert
-            // the apparent pull direction. Use the local face dimensions instead.
+            // the apparent pull direction. Use local face dimensions, then adaptively widen the
+            // finite projection step when a near edge-on X/Y normal produces only a few pixels.
             var edgeA = (face.Corners[1] - face.Corners[0]).Length;
             var edgeB = (face.Corners[2] - face.Corners[1]).Length;
             var localScale = Math.Max(0.001, Math.Min(edgeA, edgeB));
-            var length = Math.Max(0.001, localScale * 0.15);
-            var endpoint = WorldToScreen(face.Center + face.Normal * length, view);
-            if (!centre.HasValue || !endpoint.HasValue) return new ScreenPoint(0, 0, 0);
-            return new ScreenPoint(endpoint.Value.X - centre.Value.X, endpoint.Value.Y - centre.Value.Y, 0);
+            var normal = face.Normal.Normalized();
+            var best = new ScreenPoint(0, 0, 0);
+            var bestLength = 0.0;
+            var reference = new ScreenPoint(0, 0, 0);
+            var referenceLength = 0.0;
+
+            foreach (var multiplier in new[] { 0.15, 0.35, 0.75, 1.5 })
+            {
+                var length = Math.Max(0.001, localScale * multiplier);
+                var endpoint = WorldToScreen(face.Center + normal * length, view);
+                if (!endpoint.HasValue) continue;
+                var candidate = new ScreenPoint(endpoint.Value.X - centre.Value.X, endpoint.Value.Y - centre.Value.Y, 0);
+                var candidateLength = Math.Sqrt(candidate.X * candidate.X + candidate.Y * candidate.Y);
+                if (candidateLength < 1e-9) continue;
+
+                // The shortest usable vector establishes direction. Longer samples must agree
+                // with it; this avoids adopting a numerically unstable direction when a sample
+                // crosses a projection singularity.
+                if (referenceLength < 1e-9)
+                {
+                    reference = candidate;
+                    referenceLength = candidateLength;
+                }
+                else if (candidate.X * reference.X + candidate.Y * reference.Y <= 0)
+                {
+                    continue;
+                }
+
+                if (candidateLength > bestLength)
+                {
+                    best = candidate;
+                    bestLength = candidateLength;
+                }
+            }
+
+            return best;
         }
     }
 }

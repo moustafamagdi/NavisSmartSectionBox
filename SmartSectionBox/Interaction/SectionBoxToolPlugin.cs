@@ -98,7 +98,7 @@ namespace SmartSectionBox.Interaction
                 InteractionDiagnostics.LogPointerDown(x, y, probe, state, captured, captureSource);
                 if (captured)
                 {
-                    InteractionDiagnostics.LogDragBegin(x, y, hit, dragController.ScreenNormal, dragController.InitialCoordinate, dragController.UsesCalibratedRayDrag, dragController.DragCalibration);
+                    InteractionDiagnostics.LogDragBegin(x, y, hit, dragController.ScreenNormal, dragController.ProjectedNormalLength, dragController.InitialCoordinate, dragController.UsesCalibratedRayDrag, dragController.DragCalibration);
                     PublishHover(dragController.Hover);
                     view.RequestDelayedRedraw(ViewRedrawRequests.Render);
                 }
@@ -128,11 +128,12 @@ namespace SmartSectionBox.Interaction
                 var face = dragController.DraggedFaceId;
                 var initialCoordinate = dragController.InitialCoordinate;
                 var finalCoordinate = dragController.WorkingCoordinate;
+                var oppositeFacePlaneDrift = dragController.OppositeFacePlaneDrift;
                 var finalState = dragController.WorkingStateSnapshot;
                 var committed = dragController.Commit();
                 var sequenceOwned = ownsMouseSequence;
                 ownsMouseSequence = false;
-                InteractionDiagnostics.LogDragEnd(dragController.MouseStartX, dragController.MouseStartY, x, y, face, initialCoordinate, finalCoordinate, finalState, committed);
+                InteractionDiagnostics.LogDragEnd(dragController.MouseStartX, dragController.MouseStartY, x, y, face, initialCoordinate, finalCoordinate, oppositeFacePlaneDrift, finalState, committed);
                 PublishHover(FaceHoverState.None);
                 view.RequestDelayedRedraw(ViewRedrawRequests.Render);
                 return committed || sequenceOwned;

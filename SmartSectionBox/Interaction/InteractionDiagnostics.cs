@@ -26,6 +26,7 @@ namespace SmartSectionBox.Interaction
             builder.Append(" selectedIndex=").Append(probe == null ? -1 : probe.SelectedIndex);
             builder.Append(" selectionSet=front-facing-only");
             builder.Append(" picker=").Append(probe != null && probe.UsedRayPicker ? "ray" : "fallback-2d");
+            builder.Append(" captureZone=").Append(CaptureZone(probe));
             builder.Append(" calibration=").Append(Calibration(probe == null ? null : probe.Calibration));
             builder.Append(" candidateCount=").Append(probe == null || probe.Candidates == null ? 0 : probe.Candidates.Count);
             builder.Append(" box=").Append(Box(state));
@@ -33,7 +34,7 @@ namespace SmartSectionBox.Interaction
             Logger.Info(builder.ToString());
         }
 
-        public static void LogDragBegin(int x, int y, FaceHitResult selected, ScreenPoint normal, double coordinate, bool usesRayDrag, CameraRayCalibration calibration)
+        public static void LogDragBegin(int x, int y, FaceHitResult selected, ScreenPoint normal, double axisPixels, double coordinate, bool usesRayDrag, CameraRayCalibration calibration)
         {
             if (!Enabled) return;
             Logger.Info("FACE_DIAGNOSTIC DRAG_BEGIN screen=" + Point(x, y) +
@@ -41,10 +42,12 @@ namespace SmartSectionBox.Interaction
                         " coordinate=" + Number(coordinate) +
                         " driver=" + (usesRayDrag ? "fixed-camera-reference-plane" : "projected-normal-fallback") +
                         " calibration=" + Calibration(calibration) +
-                        " screenNormal=" + Point(normal.X, normal.Y));
+                        " screenNormal=" + Point(normal.X, normal.Y) +
+                        " axisPixels=" + Number(axisPixels) +
+                        " fallbackAxis=" + (usesRayDrag ? "not-used" : "adaptive-project-normal"));
         }
 
-        public static void LogDragEnd(int startX, int startY, int endX, int endY, SectionBoxFaceId face, double initialCoordinate, double finalCoordinate, SectionBoxState finalState, bool applied)
+        public static void LogDragEnd(int startX, int startY, int endX, int endY, SectionBoxFaceId face, double initialCoordinate, double finalCoordinate, double oppositeFacePlaneDrift, SectionBoxState finalState, bool applied)
         {
             if (!Enabled) return;
             Logger.Info("FACE_DIAGNOSTIC DRAG_END start=" + Point(startX, startY) +
@@ -52,6 +55,7 @@ namespace SmartSectionBox.Interaction
                         " face=" + face +
                         " initial=" + Number(initialCoordinate) +
                         " final=" + Number(finalCoordinate) +
+                        " oppositePlaneDrift=" + Number(oppositeFacePlaneDrift) +
                         " finalBox=" + Box(finalState) +
                         " applied=" + applied);
         }
@@ -70,6 +74,7 @@ namespace SmartSectionBox.Interaction
                 " picker=" + (candidate.PickerMode ?? "unknown") +
                 " frontFacing=" + candidate.IsFrontFacing +
                 " inside=" + candidate.IsInsidePolygon +
+                " edgeTolerance=" + candidate.IsEdgeToleranceCapture +
                 " screenDist=" + Number(candidate.DistanceToPolygon) +
                 " t=" + Number(candidate.RayDistance) +
                 " uv=" + Point(candidate.FaceU, candidate.FaceV) +
@@ -77,6 +82,12 @@ namespace SmartSectionBox.Interaction
                 " depth=" + Number(candidate.AverageDepth) +
                 " hit=" + Point(candidate.HitPoint.X, candidate.HitPoint.Y, candidate.HitPoint.Z) +
                 " poly=" + Polygon(candidate.Polygon))) + "]";
+        }
+
+        private static string CaptureZone(FaceHitProbe probe)
+        {
+            if (probe == null || probe.Selected == null) return "none";
+            return probe.UsedEdgeToleranceOnly ? "edge-tolerance" : "interior";
         }
 
         private static string Calibration(CameraRayCalibration calibration)
