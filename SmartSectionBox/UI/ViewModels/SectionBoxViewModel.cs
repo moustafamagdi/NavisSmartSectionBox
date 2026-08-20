@@ -16,8 +16,7 @@ namespace SmartSectionBox.UI.ViewModels
     public sealed class SectionBoxViewModel : INotifyPropertyChanged, IDisposable
     {
         private readonly SectionBoxService service;
-        private readonly DelegateCommand startCommand;
-        private readonly DelegateCommand stopCommand;
+        private readonly DelegateCommand toggleCommand;
         private bool disposed;
         private bool interactionDiagnosticsEnabled;
         private string status = "Ready — click Start, then drag a visible face.";
@@ -29,14 +28,13 @@ namespace SmartSectionBox.UI.ViewModels
             this.service.StatusChanged += OnStatusChanged;
             SectionBoxToolPlugin.HoverChanged += OnHoverChanged;
             SmartSectionBoxRuntime.ToolStateChanged += OnToolStateChanged;
-            startCommand = new DelegateCommand(_ => Start(), _ => !SmartSectionBoxRuntime.IsFacePullActive);
-            stopCommand = new DelegateCommand(_ => Stop(), _ => SmartSectionBoxRuntime.IsFacePullActive);
+            toggleCommand = new DelegateCommand(_ => ToggleTool());
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
 
-        public ICommand StartCommand => startCommand;
-        public ICommand StopCommand => stopCommand;
+        public ICommand ToggleCommand => toggleCommand;
+        public string ToggleButtonText => SmartSectionBoxRuntime.IsFacePullActive ? "Stop" : "Start";
 
         public string HoverStatus
         {
@@ -80,6 +78,12 @@ namespace SmartSectionBox.UI.ViewModels
             SmartSectionBoxRuntime.ToolStateChanged -= OnToolStateChanged;
         }
 
+        private void ToggleTool()
+        {
+            if (SmartSectionBoxRuntime.IsFacePullActive) Stop();
+            else Start();
+        }
+
         private void Start()
         {
             string message;
@@ -100,8 +104,8 @@ namespace SmartSectionBox.UI.ViewModels
 
         private void RefreshCommandStates()
         {
-            startCommand.RaiseCanExecuteChanged();
-            stopCommand.RaiseCanExecuteChanged();
+            toggleCommand.RaiseCanExecuteChanged();
+            RaisePropertyChanged(nameof(ToggleButtonText));
         }
 
         private void OnStatusChanged(object sender, string message)
