@@ -62,6 +62,14 @@ namespace SmartSectionBox.Interaction
         public int MouseStartY => mouseStartY;
         public ScreenPoint ScreenNormal => screenNormal;
         public double ProjectedNormalLength => Math.Sqrt(screenNormal.X * screenNormal.X + screenNormal.Y * screenNormal.Y);
+        public string FallbackAxisMode
+        {
+            get
+            {
+                if (rayDragActive) return "not-used";
+                return ProjectedNormalLength >= 6.0 ? "adaptive-project-normal" : "screen-up-singularity";
+            }
+        }
         public double OppositeFacePlaneDrift
         {
             get

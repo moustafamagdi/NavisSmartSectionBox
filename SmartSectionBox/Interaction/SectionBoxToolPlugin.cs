@@ -98,7 +98,7 @@ namespace SmartSectionBox.Interaction
                 InteractionDiagnostics.LogPointerDown(x, y, probe, state, captured, captureSource);
                 if (captured)
                 {
-                    InteractionDiagnostics.LogDragBegin(x, y, hit, dragController.ScreenNormal, dragController.ProjectedNormalLength, dragController.InitialCoordinate, dragController.UsesCalibratedRayDrag, dragController.DragCalibration);
+                    InteractionDiagnostics.LogDragBegin(x, y, hit, dragController.ScreenNormal, dragController.ProjectedNormalLength, dragController.FallbackAxisMode, dragController.InitialCoordinate, dragController.UsesCalibratedRayDrag, dragController.DragCalibration);
                     PublishHover(dragController.Hover);
                     view.RequestDelayedRedraw(ViewRedrawRequests.Render);
                 }

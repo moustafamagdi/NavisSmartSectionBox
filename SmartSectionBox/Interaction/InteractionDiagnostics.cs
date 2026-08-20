@@ -34,7 +34,7 @@ namespace SmartSectionBox.Interaction
             Logger.Info(builder.ToString());
         }
 
-        public static void LogDragBegin(int x, int y, FaceHitResult selected, ScreenPoint normal, double axisPixels, double coordinate, bool usesRayDrag, CameraRayCalibration calibration)
+        public static void LogDragBegin(int x, int y, FaceHitResult selected, ScreenPoint normal, double axisPixels, string fallbackAxisMode, double coordinate, bool usesRayDrag, CameraRayCalibration calibration)
         {
             if (!Enabled) return;
             Logger.Info("FACE_DIAGNOSTIC DRAG_BEGIN screen=" + Point(x, y) +
@@ -44,7 +44,7 @@ namespace SmartSectionBox.Interaction
                         " calibration=" + Calibration(calibration) +
                         " screenNormal=" + Point(normal.X, normal.Y) +
                         " axisPixels=" + Number(axisPixels) +
-                        " fallbackAxis=" + (usesRayDrag ? "not-used" : "adaptive-project-normal"));
+                        " fallbackAxis=" + (fallbackAxisMode ?? "unknown"));
         }
 
         public static void LogDragEnd(int startX, int startY, int endX, int endY, SectionBoxFaceId face, double initialCoordinate, double finalCoordinate, double oppositeFacePlaneDrift, SectionBoxState finalState, bool applied)
