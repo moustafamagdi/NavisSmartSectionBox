@@ -211,19 +211,12 @@ namespace SmartSectionBox.Interaction
         {
             CalibrationModel best = null;
             var samplePoints = CalibrationPoints(snapshot.ViewportWidth, snapshot.ViewportHeight);
-            if (snapshot.HasNativeMatrix)
+            foreach (var candidate in CalibrationModel.Candidates(snapshot.HasNativeMatrix))
             {
-                best = CalibrateNativeMatrixAxes(view, snapshot, samplePoints);
-            }
-
-            // The raw A/B/C/D layouts are guarded compatibility candidates. They are evaluated
-            // only when the documented native matrix path did not verify against ProjectPoint.
-            if (best == null || double.IsInfinity(best.MeanErrorPixels) || best.MaxErrorPixels > MaximumCalibrationErrorPixels)
-            {
-                foreach (var candidate in CalibrationModel.QuaternionCandidates())
+                var result = CalibrateCandidate(view, snapshot, candidate, samplePoints);
+                if (best == null || result.MeanErrorPixels < best.MeanErrorPixels)
                 {
-                    var result = CalibrateCandidate(view, snapshot, candidate, samplePoints);
-                    if (best == null || result.MeanErrorPixels < best.MeanErrorPixels) best = result;
+                    best = result;
                 }
             }
 
@@ -250,36 +243,6 @@ namespace SmartSectionBox.Interaction
                 QuaternionConvention = best.Name,
                 FailureReason = null
             };
-            return best;
-        }
-
-        private static CalibrationModel CalibrateNativeMatrixAxes(View view, CameraSnapshot snapshot, IReadOnlyList<ScreenPoint> samplePoints)
-        {
-            // A Matrix3 is an authoritative rotation, but Navisworks does not document which
-            // local camera axes represent screen right, screen up, and look direction. Rank all
-            // right-handed axis conventions cheaply, then fully refine only the strongest three.
-            var coarse = new List<CalibrationModel>();
-            var coarseScales = new[] { 0.25, 1.0, 4.0 };
-            foreach (var candidate in CalibrationModel.NativeMatrixCandidates())
-            {
-                CalibrationModel bestCoarse = null;
-                foreach (var scale in coarseScales)
-                {
-                    var trial = candidate.WithScale(scale);
-                    ScoreCalibration(view, snapshot, trial, samplePoints);
-                    if (bestCoarse == null || trial.MeanErrorPixels < bestCoarse.MeanErrorPixels) bestCoarse = trial;
-                }
-                coarse.Add(bestCoarse ?? candidate.WithFailure());
-            }
-
-            coarse.Sort((left, right) => left.MeanErrorPixels.CompareTo(right.MeanErrorPixels));
-            CalibrationModel best = null;
-            var shortlistCount = Math.Min(3, coarse.Count);
-            for (var index = 0; index < shortlistCount; index++)
-            {
-                var refined = CalibrateCandidate(view, snapshot, coarse[index], samplePoints);
-                if (best == null || refined.MeanErrorPixels < best.MeanErrorPixels) best = refined;
-            }
             return best;
         }
 
@@ -390,26 +353,23 @@ namespace SmartSectionBox.Interaction
         {
             if (model.BasisSource == BasisSource.NativeMatrix)
             {
-                Vector3 localX;
-                Vector3 localY;
-                Vector3 localZ;
                 if (model.UseInverse)
                 {
-                    // Rows are the world-space local axes when Matrix3 is world-to-camera.
-                    localX = new Vector3(snapshot.M00, snapshot.M01, snapshot.M02).Normalized();
-                    localY = new Vector3(snapshot.M10, snapshot.M11, snapshot.M12).Normalized();
-                    localZ = new Vector3(snapshot.M20, snapshot.M21, snapshot.M22).Normalized();
+                    // Rows are the world-space axes when the native matrix is interpreted as
+                    // world-to-camera. The calibration chooses this only if ProjectPoint agrees.
+                    right = new Vector3(snapshot.M00, snapshot.M01, snapshot.M02).Normalized();
+                    up = new Vector3(snapshot.M10, snapshot.M11, snapshot.M12).Normalized();
+                    forward = new Vector3(-snapshot.M20, -snapshot.M21, -snapshot.M22).Normalized();
                 }
                 else
                 {
-                    // Columns are the world-space local axes when Matrix3 is camera-to-world.
-                    localX = new Vector3(snapshot.M00, snapshot.M10, snapshot.M20).Normalized();
-                    localY = new Vector3(snapshot.M01, snapshot.M11, snapshot.M21).Normalized();
-                    localZ = new Vector3(snapshot.M02, snapshot.M12, snapshot.M22).Normalized();
+                    // Columns are the world-space images of the local camera +X/+Y/+Z axes
+                    // when the native matrix is interpreted as camera-to-world.
+                    right = new Vector3(snapshot.M00, snapshot.M10, snapshot.M20).Normalized();
+                    up = new Vector3(snapshot.M01, snapshot.M11, snapshot.M21).Normalized();
+                    forward = new Vector3(-snapshot.M02, -snapshot.M12, -snapshot.M22).Normalized();
                 }
 
-                forward = SelectMatrixAxis(model.MatrixForwardAxis, localX, localY, localZ).Normalized();
-                up = SelectMatrixAxis(model.MatrixUpAxis, localX, localY, localZ).Normalized();
                 right = Vector3.Cross(forward, up).Normalized();
                 up = Vector3.Cross(right, forward).Normalized();
                 return;
@@ -429,20 +389,6 @@ namespace SmartSectionBox.Interaction
             // quaternion has negligible serialization noise.
             right = Vector3.Cross(forward, up).Normalized();
             up = Vector3.Cross(right, forward).Normalized();
-        }
-
-        private static Vector3 SelectMatrixAxis(MatrixAxis axis, Vector3 localX, Vector3 localY, Vector3 localZ)
-        {
-            switch (axis)
-            {
-                case MatrixAxis.PositiveX: return localX;
-                case MatrixAxis.NegativeX: return localX * -1.0;
-                case MatrixAxis.PositiveY: return localY;
-                case MatrixAxis.NegativeY: return localY * -1.0;
-                case MatrixAxis.PositiveZ: return localZ;
-                case MatrixAxis.NegativeZ: return localZ * -1.0;
-                default: return new Vector3(0, 0, 0);
-            }
         }
 
         private static Vector3 Rotate(Vector3 vector, double x, double y, double z, double w)
@@ -507,113 +453,51 @@ namespace SmartSectionBox.Interaction
             Quaternion
         }
 
-        private enum MatrixAxis
-        {
-            PositiveX,
-            NegativeX,
-            PositiveY,
-            NegativeY,
-            PositiveZ,
-            NegativeZ
-        }
-
         private sealed class CalibrationModel
         {
             public BasisSource BasisSource { get; private set; }
             public QuaternionLayout ComponentLayout { get; private set; }
             public bool UseInverse { get; private set; }
-            public MatrixAxis MatrixForwardAxis { get; private set; }
-            public MatrixAxis MatrixUpAxis { get; private set; }
             public double ExtentScale { get; private set; }
             public string Name { get; private set; }
             public double MeanErrorPixels { get; set; }
             public double MaxErrorPixels { get; set; }
 
-            private CalibrationModel(
-                BasisSource basisSource,
-                QuaternionLayout layout,
-                bool useInverse,
-                MatrixAxis matrixForwardAxis,
-                MatrixAxis matrixUpAxis,
-                double extentScale)
+            private CalibrationModel(BasisSource basisSource, QuaternionLayout layout, bool useInverse, double extentScale)
             {
                 BasisSource = basisSource;
                 ComponentLayout = layout;
                 UseInverse = useInverse;
-                MatrixForwardAxis = matrixForwardAxis;
-                MatrixUpAxis = matrixUpAxis;
                 ExtentScale = extentScale;
                 Name = basisSource == BasisSource.NativeMatrix
-                    ? "native-Matrix3(Rotation3D)" + (useInverse ? "; inverse" : "; direct") +
-                      "; forward=" + AxisName(matrixForwardAxis) + "; up=" + AxisName(matrixUpAxis)
+                    ? "native-Matrix3(Rotation3D)" + (useInverse ? "; inverse" : "; direct")
                     : (layout == QuaternionLayout.ABcd ? "A,B,C,D=>x,y,z,w" : "A,B,C,D=>w,x,y,z") +
                       (useInverse ? "; inverse" : "; direct");
                 MeanErrorPixels = double.PositiveInfinity;
                 MaxErrorPixels = double.PositiveInfinity;
             }
 
-            public static IEnumerable<CalibrationModel> NativeMatrixCandidates()
+            public static IEnumerable<CalibrationModel> Candidates(bool hasNativeMatrix)
             {
-                var axes = new[]
+                if (hasNativeMatrix)
                 {
-                    MatrixAxis.PositiveX, MatrixAxis.NegativeX,
-                    MatrixAxis.PositiveY, MatrixAxis.NegativeY,
-                    MatrixAxis.PositiveZ, MatrixAxis.NegativeZ
-                };
-                foreach (var useInverse in new[] { false, true })
-                {
-                    foreach (var forward in axes)
-                    {
-                        foreach (var up in axes)
-                        {
-                            if (AxisIndex(forward) == AxisIndex(up)) continue;
-                            yield return new CalibrationModel(
-                                BasisSource.NativeMatrix,
-                                QuaternionLayout.ABcd,
-                                useInverse,
-                                forward,
-                                up,
-                                1.0);
-                        }
-                    }
+                    yield return new CalibrationModel(BasisSource.NativeMatrix, QuaternionLayout.ABcd, false, 1.0);
+                    yield return new CalibrationModel(BasisSource.NativeMatrix, QuaternionLayout.ABcd, true, 1.0);
                 }
-            }
-
-            public static IEnumerable<CalibrationModel> QuaternionCandidates()
-            {
-                yield return new CalibrationModel(BasisSource.Quaternion, QuaternionLayout.ABcd, false, MatrixAxis.NegativeZ, MatrixAxis.PositiveY, 1.0);
-                yield return new CalibrationModel(BasisSource.Quaternion, QuaternionLayout.ABcd, true, MatrixAxis.NegativeZ, MatrixAxis.PositiveY, 1.0);
-                yield return new CalibrationModel(BasisSource.Quaternion, QuaternionLayout.WAbc, false, MatrixAxis.NegativeZ, MatrixAxis.PositiveY, 1.0);
-                yield return new CalibrationModel(BasisSource.Quaternion, QuaternionLayout.WAbc, true, MatrixAxis.NegativeZ, MatrixAxis.PositiveY, 1.0);
+                yield return new CalibrationModel(BasisSource.Quaternion, QuaternionLayout.ABcd, false, 1.0);
+                yield return new CalibrationModel(BasisSource.Quaternion, QuaternionLayout.ABcd, true, 1.0);
+                yield return new CalibrationModel(BasisSource.Quaternion, QuaternionLayout.WAbc, false, 1.0);
+                yield return new CalibrationModel(BasisSource.Quaternion, QuaternionLayout.WAbc, true, 1.0);
             }
 
             public CalibrationModel WithScale(double scale)
             {
-                return new CalibrationModel(BasisSource, ComponentLayout, UseInverse, MatrixForwardAxis, MatrixUpAxis, scale);
+                return new CalibrationModel(BasisSource, ComponentLayout, UseInverse, scale);
             }
 
             public CalibrationModel WithFailure()
             {
-                return new CalibrationModel(BasisSource, ComponentLayout, UseInverse, MatrixForwardAxis, MatrixUpAxis, ExtentScale);
-            }
-
-            private static int AxisIndex(MatrixAxis axis)
-            {
-                return ((int)axis) / 2;
-            }
-
-            private static string AxisName(MatrixAxis axis)
-            {
-                switch (axis)
-                {
-                    case MatrixAxis.PositiveX: return "+X";
-                    case MatrixAxis.NegativeX: return "-X";
-                    case MatrixAxis.PositiveY: return "+Y";
-                    case MatrixAxis.NegativeY: return "-Y";
-                    case MatrixAxis.PositiveZ: return "+Z";
-                    case MatrixAxis.NegativeZ: return "-Z";
-                    default: return "?";
-                }
+                return new CalibrationModel(BasisSource, ComponentLayout, UseInverse, ExtentScale);
             }
         }
 

@@ -11,7 +11,6 @@ internal static class CameraRayHarness
         {
             VerifyPerspectiveRoundTrip();
             VerifyOrthographicRoundTrip();
-            VerifyAlternateMatrixAxisConvention();
             VerifyObbFacePickingAtCivilCoordinates();
             VerifyCalibrationFailureFallsBackSafely();
             VerifyAbsoluteRayDrag();
@@ -49,26 +48,7 @@ internal static class CameraRayHarness
         AssertRoundTrip(view, ray, 1010, 110, 30.0, "Orthographic ray must project back to its requested pixel.");
     }
 
-            private static void VerifyAlternateMatrixAxisConvention()
-        {
-            // This synthetic host has the same Matrix3 rotation but uses local +X as look
-            // direction, +Z as up, and -Y as screen right. The picker must derive that mapping
-            // from ProjectPoint rather than hard-coding local +X/+Y/-Z.
-            var view = SyntheticView.PerspectiveWithAlternateMatrixAxes(new Point3D(20, 10, 100), 15.0, 50.0, 40.0, 60.0);
-            var builder = new CameraRayBuilder();
-            CameraRay ray;
-            CameraRayCalibration calibration;
-            Assert(builder.TryCreateRay(view, 175, 640, out ray, out calibration),
-                "An alternate native Matrix3 camera-axis convention must calibrate against ProjectPoint.");
-            Assert(calibration.QuaternionConvention.StartsWith("native-Matrix3"),
-                "An alternate convention must remain on the native Matrix3 path.");
-            Assert(calibration.QuaternionConvention.Contains("forward=+X") && calibration.QuaternionConvention.Contains("up=+Z"),
-                "The diagnostic basis must identify the selected alternate Matrix3 axes.");
-            AssertRoundTrip(view, ray, 175, 640, 50.0, "Alternate Matrix3 axes must project back to the requested pixel.");
-        }
-
-        private static void VerifyObbFacePickingAtCivilCoordinates()
-
+    private static void VerifyObbFacePickingAtCivilCoordinates()
     {
         var baseX = 2440000.0;
         var baseY = 9080000.0;
@@ -176,13 +156,11 @@ internal static class CameraRayHarness
     private sealed class SyntheticView : View
     {
         private readonly Viewpoint viewpoint;
-        private readonly bool useAlternateMatrixAxes;
         private bool forceProjectionFailure;
 
-        private SyntheticView(Viewpoint viewpoint, bool useAlternateMatrixAxes = false)
+        private SyntheticView(Viewpoint viewpoint)
         {
             this.viewpoint = viewpoint;
-            this.useAlternateMatrixAxes = useAlternateMatrixAxes;
             Width = 1200;
             Height = 800;
         }
@@ -195,13 +173,6 @@ internal static class CameraRayHarness
         public static SyntheticView Orthographic(Point3D position, double yawDegrees, double focal, double verticalExtent, double horizontalExtent)
         {
             return new SyntheticView(CreateViewpoint(position, yawDegrees, ViewpointProjection.Orthographic, focal, verticalExtent, horizontalExtent));
-        }
-
-        public static SyntheticView PerspectiveWithAlternateMatrixAxes(Point3D position, double yawDegrees, double focal, double verticalExtent, double horizontalExtent)
-        {
-            return new SyntheticView(
-                CreateViewpoint(position, yawDegrees, ViewpointProjection.Perspective, focal, verticalExtent, horizontalExtent),
-                true);
         }
 
         public static SyntheticView Uncalibrated(Point3D position, double yawDegrees, double focal, double verticalExtent, double horizontalExtent)
@@ -222,20 +193,18 @@ internal static class CameraRayHarness
             if (forceProjectionFailure) return new ProjectionResult { X = 0, Y = 0, Depth = 0 };
             var relative = new Vector3(point.X - viewpoint.Position.X, point.Y - viewpoint.Position.Y, point.Z - viewpoint.Position.Z);
             var local = InverseRotate(relative, viewpoint.Rotation);
-            var depth = useAlternateMatrixAxes ? local.X : -local.Z;
-            var screenRight = useAlternateMatrixAxes ? -local.Y : local.X;
-            var screenUp = useAlternateMatrixAxes ? local.Z : local.Y;
+            var depth = -local.Z;
             double x;
             double y;
             if (viewpoint.Projection == ViewpointProjection.Perspective)
             {
-                x = Width * (0.5 + screenRight * viewpoint.FocalDistance / (depth * viewpoint.HorizontalExtentAtFocalDistance));
-                y = Height * (0.5 - screenUp * viewpoint.FocalDistance / (depth * viewpoint.VerticalExtentAtFocalDistance));
+                x = Width * (0.5 + local.X * viewpoint.FocalDistance / (depth * viewpoint.HorizontalExtentAtFocalDistance));
+                y = Height * (0.5 - local.Y * viewpoint.FocalDistance / (depth * viewpoint.VerticalExtentAtFocalDistance));
             }
             else
             {
-                x = Width * (0.5 + screenRight / viewpoint.HorizontalExtentAtFocalDistance);
-                y = Height * (0.5 - screenUp / viewpoint.VerticalExtentAtFocalDistance);
+                x = Width * (0.5 + local.X / viewpoint.HorizontalExtentAtFocalDistance);
+                y = Height * (0.5 - local.Y / viewpoint.VerticalExtentAtFocalDistance);
             }
 
             return new ProjectionResult { X = x, Y = y, Depth = depth };
